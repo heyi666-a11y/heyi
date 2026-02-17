@@ -441,7 +441,7 @@
             display: block;
         }
 
-        /* 所有屏幕始终横屏显示 */
+        /* 屏幕适配 */
         @media (max-width: 900px) {
             .screen.active {
                 position: fixed;
@@ -452,28 +452,12 @@
                 overflow: hidden;
                 z-index: 5;
             }
-            
-            /* 竖屏时旋转90度 */
-            @media (orientation: portrait) {
-                .screen.active {
-                    transform: rotate(90deg);
-                    transform-origin: center center;
-                }
-            }
         }
         
         /* 安卓手机尺寸优化 */
         @media (max-width: 480px) {
             .screen.active {
-                transform: rotate(90deg) scale(0.9);
-                transform-origin: center center;
-            }
-        }
-        
-        @media (max-width: 360px) {
-            .screen.active {
-                transform: rotate(90deg) scale(0.8);
-                transform-origin: center center;
+                overflow-y: auto;
             }
         }
 
@@ -1768,22 +1752,10 @@
             </div>
             <div class="editor-area">
                 <div class="editor-tracks" id="editorTracks">
-                    <div class="editor-track" data-track="0"></div>
-                    <div class="editor-track" data-track="1"></div>
-                    <div class="editor-track" data-track="2"></div>
-                    <div class="editor-track" data-track="3"></div>
-                    <div class="editor-track" data-track="4"></div>
-                    <div class="editor-track" data-track="5"></div>
-                    <div class="editor-track" data-track="6"></div>
+                    <!-- 音道将通过JavaScript动态创建 -->
                 </div>
-                <div class="editor-keys">
-                    <button class="editor-key track0" data-track="0"><span>1</span><small>C</small></button>
-                    <button class="editor-key track1" data-track="1"><span>2</span><small>D</small></button>
-                    <button class="editor-key track2" data-track="2"><span>3</span><small>E</small></button>
-                    <button class="editor-key track3" data-track="3"><span>4</span><small>F</small></button>
-                    <button class="editor-key track4" data-track="4"><span>5</span><small>G</small></button>
-                    <button class="editor-key track5" data-track="5"><span>6</span><small>A</small></button>
-                    <button class="editor-key track6" data-track="6"><span>7</span><small>B</small></button>
+                <div class="editor-keys" id="editorKeys">
+                    <!-- 按键将通过JavaScript动态创建 -->
                 </div>
                 <div class="editor-empty-tip" id="editorTip">点击按键添加音符</div>
             </div>
@@ -2034,10 +2006,37 @@
             }
         }
 
+        // 初始化编辑器音道
+        function initEditorTracks() {
+            const editorTracks = document.getElementById('editorTracks');
+            const editorKeys = document.getElementById('editorKeys');
+            
+            editorTracks.innerHTML = '';
+            editorKeys.innerHTML = '';
+            
+            // 根据设备类型创建音道
+            for (let i = 0; i < trackCount; i++) {
+                const track = document.createElement('div');
+                track.className = 'editor-track';
+                track.dataset.track = i;
+                track.addEventListener('click', () => addNote(i));
+                editorTracks.appendChild(track);
+                
+                const key = document.createElement('button');
+                key.className = `editor-key track${i}`;
+                key.dataset.track = i;
+                key.innerHTML = `<span>${i + 1}</span><small>${noteNames[i]}</small>`;
+                key.addEventListener('click', () => addNote(i));
+                editorKeys.appendChild(key);
+            }
+        }
+
         // 页面加载时初始化
         window.addEventListener('load', function() {
             try {
                 initSupabase();
+                // 初始化编辑器音道
+                initEditorTracks();
                 // 延迟初始化背景音乐，确保用户交互后
                 setTimeout(() => {
                     initBackgroundMusic();
@@ -2075,6 +2074,20 @@
         // 用户状态
         let currentUser = null;
         let isAuthModeLogin = true; // true为登录，false为注册
+
+        // 设备检测
+        let isMobile = false;
+        let trackCount = 7; // 默认7音道
+
+        // 检测设备类型
+        function detectDevice() {
+            isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            trackCount = isMobile ? 3 : 7;
+            console.log('设备类型:', isMobile ? '手机' : '电脑', '音道数量:', trackCount);
+        }
+
+        // 初始化设备检测
+        detectDevice();
 
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
@@ -2598,7 +2611,7 @@
             trackContainer.innerHTML = '';
             gameKeys.innerHTML = '';
             
-            for (let i = 0; i < 7; i++) {
+            for (let i = 0; i < trackCount; i++) {
                 const track = document.createElement('div');
                 track.className = 'track';
                 track.dataset.track = i;
@@ -2745,7 +2758,8 @@
             
             // 计算带八度的频率
             const octaveMultiplier = Math.pow(2, (note.octave || 1) - 1);
-            const freq = noteFreqs[track] * octaveMultiplier;
+            const displayNote = note.note || track;
+            const freq = noteFreqs[displayNote] * octaveMultiplier;
             
             // 播放音效
             playTone(freq, 0.3, 0.4);
@@ -3100,14 +3114,15 @@
                     noteEl.className = `note track${note.track}`;
                     noteEl.style.top = y + 'px';
                     noteEl.style.height = '55px';
-                    noteEl.innerHTML = `${noteNames[note.track]}<br><small>${(note.duration || 400)}ms</small>`;
+                    const displayNote = note.note || note.track;
+                    noteEl.innerHTML = `${noteNames[displayNote]}<br><small>${(note.duration || 400)}ms</small>`;
                     noteEl.dataset.noteIndex = noteIndex;
                     
                     // 统一为普通方块样式
                     noteEl.style.borderRadius = '12px';
                     noteEl.style.background = `linear-gradient(135deg, ${getTrackColor(note.track)}, ${getTrackColor(note.track, 0.7)})`;
                     
-                    if (note.track < 7) {
+                    if (note.track < trackCount) {
                         const track = trackContainer.children[note.track];
                         if (track) {
                             track.appendChild(noteEl);
@@ -3299,8 +3314,16 @@
                 time = lastNote.time + lastNote.duration;
             }
             
+            // 对于手机版，让用户选择使用哪个音节
+            let selectedNote = track;
+            if (isMobile) {
+                // 对于手机版，循环使用7种音节
+                selectedNote = track % 7;
+            }
+            
             editorNotes.push({
                 track: track,
+                note: selectedNote, // 存储实际的音节
                 time: time,
                 duration: duration,
                 octave: currentOctave
@@ -3308,7 +3331,7 @@
             
             // 计算带八度的频率
             const octaveMultiplier = Math.pow(2, currentOctave - 1);
-            const freq = noteFreqs[track] * octaveMultiplier;
+            const freq = noteFreqs[selectedNote] * octaveMultiplier;
             playTone(freq, duration / 1000, 0.4);
             renderEditorNotes();
         }
@@ -3350,7 +3373,8 @@
                 noteEl.style.height = '45px';
                 // 在方块中标明长度和八度
                 const octaveText = note.octave === 0 ? '低' : (note.octave === 1 ? '中' : '高');
-                noteEl.innerHTML = `${noteNames[note.track]}<br><small>${note.duration}ms | ${octaveText}八度</small>`;
+                const displayNote = note.note || note.track;
+                noteEl.innerHTML = `${noteNames[displayNote]}<br><small>${note.duration}ms | ${octaveText}八度</small>`;
                 noteEl.title = `双击删除 | 长度: ${note.duration}ms | 八度: ${octaveText} | 时间: ${note.time}ms`;
                 noteEl.draggable = true;
                 
