@@ -1,0 +1,3999 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>钢琴块 - 自制歌曲</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            height: 100%;
+            overflow: hidden;
+            touch-action: manipulation;
+            background: #000;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        .splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            background: #000;
+        }
+
+        .splash-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('封面.jpg') center/cover no-repeat;
+            opacity: 0.7;
+            background-attachment: fixed;
+            background-position: center center;
+            background-size: cover;
+            background-repeat: no-repeat;
+        }
+
+        .splash-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(180deg, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0.7) 100%);
+        }
+
+        .splash-content {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .splash-title {
+            color: #fff;
+            font-size: 3.5rem;
+            font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+            font-weight: 300;
+            text-shadow: none;
+            margin-bottom: 80px;
+            letter-spacing: 0.5em;
+            position: relative;
+            display: inline-block;
+        }
+
+        .splash-title span {
+            display: inline-block;
+            animation: fadeInUp 0.8s ease-out forwards;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        .splash-title span:nth-child(1) { animation-delay: 0.1s; }
+        .splash-title span:nth-child(2) { animation-delay: 0.2s; }
+        .splash-title span:nth-child(3) { animation-delay: 0.3s; }
+        .splash-title span:nth-child(4) { animation-delay: 0.4s; }
+        .splash-title span:nth-child(5) { animation-delay: 0.5s; }
+
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* 滑动解锁 */
+        .slide-unlock {
+            position: relative;
+            width: 280px;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 30px;
+            overflow: hidden;
+            cursor: pointer;
+            box-shadow: 
+                inset 0 2px 5px rgba(0,0,0,0.2),
+                0 2px 10px rgba(0,0,0,0.2);
+        }
+
+        .slide-unlock-track {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            right: 5px;
+            bottom: 5px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .slide-unlock-text {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 1rem;
+            font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+            letter-spacing: 0.2em;
+            transition: opacity 0.3s;
+        }
+
+        .slide-unlock-text.sliding {
+            opacity: 0;
+        }
+
+        .slide-unlock-thumb {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 54px;
+            height: 54px;
+            background: linear-gradient(180deg, #fff 0%, #e8e8e8 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            box-shadow: 
+                0 3px 0 #999,
+                0 3px 5px rgba(0,0,0,0.3);
+            transition: transform 0.1s;
+            z-index: 2;
+        }
+
+        .slide-unlock-thumb::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 8px;
+            right: 8px;
+            height: 3px;
+            background: rgba(0,0,0,0.1);
+            border-radius: 50%;
+        }
+
+        .slide-unlock-thumb.pressed {
+            transform: scale(0.95);
+            box-shadow: 
+                0 1px 0 #999,
+                0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        .slide-unlock-success {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(180deg, #4CAF50, #45a049);
+            border-radius: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.3s ease-out;
+        }
+
+        .slide-unlock-success.show {
+            transform: scaleX(1);
+        }
+
+        .slide-unlock-success span {
+            color: #fff;
+            font-size: 1.1rem;
+            font-weight: bold;
+            letter-spacing: 0.3em;
+        }
+
+        @media (max-width: 480px) {
+            .slide-unlock {
+                width: 240px;
+                height: 55px;
+            }
+
+            .slide-unlock-thumb {
+                width: 49px;
+                height: 49px;
+            }
+        }
+
+        .splash-btn {
+            padding: 20px 60px;
+            background: linear-gradient(180deg, #fff 0%, #e8e8e8 50%, #d0d0d0 100%);
+            color: #1a1a1a;
+            border: none;
+            border-radius: 10px 10px 8px 8px;
+            font-size: 1.1rem;
+            font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+            font-weight: 600;
+            cursor: pointer;
+            letter-spacing: 0.4em;
+            position: relative;
+            box-shadow: 
+                0 8px 0 #999,
+                0 8px 10px rgba(0,0,0,0.3),
+                0 15px 20px rgba(0,0,0,0.2),
+                inset 0 1px 0 rgba(255,255,255,0.8);
+            transition: all 0.1s ease;
+            text-transform: uppercase;
+        }
+
+        .splash-btn::before {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 10px;
+            right: 10px;
+            height: 4px;
+            background: linear-gradient(180deg, rgba(0,0,0,0.1), transparent);
+            border-radius: 50%;
+        }
+
+        .splash-btn:hover {
+            background: linear-gradient(180deg, #fff 0%, #f5f5f5 50%, #e8e8e8 100%);
+            transform: translateY(-2px);
+            box-shadow: 
+                0 10px 0 #999,
+                0 10px 15px rgba(0,0,0,0.3),
+                0 20px 25px rgba(0,0,0,0.2),
+                inset 0 1px 0 rgba(255,255,255,0.8);
+        }
+
+        .splash-btn:active {
+            transform: translateY(6px);
+            box-shadow: 
+                0 2px 0 #999,
+                0 2px 5px rgba(0,0,0,0.3),
+                0 5px 10px rgba(0,0,0,0.2),
+                inset 0 1px 0 rgba(255,255,255,0.8);
+        }
+
+        .splash-btn:active::before {
+            opacity: 0;
+        }
+
+        .splash-music-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 102;
+        }
+
+        .splash-music-btn, .music-btn {
+            padding: 10px 16px;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            border-radius: 20px;
+            color: #fff;
+            font-size: 0.85rem;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        /* 横屏提示 */
+        .rotate-hint {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(180deg, #0c1445 0%, #1a1a4e 50%, #2d1b4e 100%);
+            z-index: 9999;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .rotate-hint.show {
+            display: flex;
+        }
+
+        .rotate-icon {
+            font-size: 4rem;
+            animation: rotateAnim 1.5s ease-in-out infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes rotateAnim {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(-30deg); }
+            75% { transform: rotate(30deg); }
+        }
+
+        .rotate-text {
+            color: #fff;
+            font-size: 1.5rem;
+            text-align: center;
+            line-height: 1.6;
+        }
+
+        .rotate-subtext {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 1rem;
+            margin-top: 10px;
+        }
+
+        .rotate-dismiss-btn {
+            margin-top: 30px;
+            padding: 15px 40px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 25px;
+            color: #fff;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .rotate-dismiss-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        @media (max-width: 768px) and (orientation: portrait) {
+            .rotate-hint {
+                display: flex;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .splash-title {
+                font-size: 2.2rem;
+                letter-spacing: 0.3em;
+                margin-bottom: 50px;
+            }
+
+            .splash-btn {
+                padding: 16px 40px;
+                font-size: 0.9rem;
+                box-shadow: 
+                    0 5px 0 #999,
+                    0 5px 8px rgba(0,0,0,0.3),
+                    0 10px 15px rgba(0,0,0,0.2),
+                    inset 0 1px 0 rgba(255,255,255,0.8);
+            }
+
+            .splash-btn:active {
+                transform: translateY(4px);
+                box-shadow: 
+                    0 1px 0 #999,
+                    0 1px 3px rgba(0,0,0,0.3),
+                    0 3px 5px rgba(0,0,0,0.2),
+                    inset 0 1px 0 rgba(255,255,255,0.8);
+            }
+
+            .splash-btn:hover {
+                transform: translateY(-1px);
+                box-shadow: 
+                    0 6px 0 #999,
+                    0 6px 10px rgba(0,0,0,0.3),
+                    0 12px 18px rgba(0,0,0,0.2),
+                    inset 0 1px 0 rgba(255,255,255,0.8);
+            }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.8; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.05); }
+        }
+
+        @keyframes btnPulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 6px 30px rgba(233, 69, 96, 0.5); }
+            50% { transform: scale(1.05); box-shadow: 0 8px 40px rgba(233, 69, 96, 0.7); }
+        }
+
+        .header {
+            width: 100%;
+            padding: 15px;
+            text-align: center;
+            background: linear-gradient(180deg, rgba(233, 69, 96, 0.3) 0%, transparent 100%);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            color: #fff;
+            font-size: 1.3rem;
+            text-shadow: 0 0 20px #e94560;
+        }
+
+        .header-btn {
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #e94560, #c73e54);
+            color: #fff;
+            border: none;
+            border-radius: 25px;
+            font-size: 0.95rem;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .screen {
+            display: none;
+            height: calc(100vh - 60px);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            background: linear-gradient(180deg, #0c1445 0%, #1a1a4e 50%, #2d1b4e 100%);
+        }
+
+        .screen.active {
+            display: block;
+        }
+
+        /* 所有屏幕始终横屏显示 */
+        @media (max-width: 900px) {
+            .screen.active {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                overflow: hidden;
+                z-index: 5;
+            }
+            
+            /* 竖屏时旋转90度 */
+            @media (orientation: portrait) {
+                .screen.active {
+                    transform: rotate(90deg);
+                    transform-origin: center center;
+                }
+            }
+        }
+        
+        /* 安卓手机尺寸优化 */
+        @media (max-width: 480px) {
+            .screen.active {
+                transform: rotate(90deg) scale(0.9);
+                transform-origin: center center;
+            }
+        }
+        
+        @media (max-width: 360px) {
+            .screen.active {
+                transform: rotate(90deg) scale(0.8);
+                transform-origin: center center;
+            }
+        }
+
+        .lobby-container {
+            padding: 15px;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .song-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+
+        .song-card:active {
+            transform: scale(0.98);
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .song-card .title {
+            color: #fff;
+            font-size: 1.1rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .song-card .author {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.8rem;
+            margin-bottom: 8px;
+        }
+
+        .song-card .stats {
+            display: flex;
+            gap: 12px;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.75rem;
+        }
+
+        .editor-container {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .editor-header {
+            padding: 10px 15px;
+            background: rgba(0, 0, 0, 0.4);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .duration-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #fff;
+            font-size: 0.9rem;
+            flex-wrap: wrap;
+        }
+
+        .duration-buttons {
+            display: flex;
+            gap: 4px;
+        }
+
+        #customDuration {
+            width: 80px;
+            padding: 6px 8px;
+            border: none;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+            font-size: 0.85rem;
+        }
+
+        #customDuration::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+        
+        .duration-btn {
+            padding: 6px 10px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+        }
+        
+        .duration-btn.active {
+            background: #e94560;
+            color: #fff;
+        }
+
+        .octave-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #fff;
+            font-size: 0.9rem;
+        }
+
+        #octaveSelect {
+            padding: 6px 8px;
+            border: none;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        #octaveSelect option {
+            background: #1a1a4e;
+            color: #fff;
+        }
+
+        .editor-header input {
+            padding: 10px 14px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+            font-size: 0.95rem;
+        }
+
+        .editor-header input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .editor-header input[type="text"] {
+            flex: 1;
+            min-width: 100px;
+        }
+
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #fff;
+            font-size: 0.9rem;
+        }
+
+        .speed-control input {
+            width: 60px;
+            padding: 8px !important;
+        }
+
+        .editor-btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .editor-btn.primary {
+            background: linear-gradient(135deg, #e94560, #c73e54);
+            color: #fff;
+        }
+
+        .editor-btn.secondary {
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+        }
+
+        .editor-area {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .editor-tracks {
+            display: flex;
+            flex: 1;
+            position: relative;
+            min-height: 400px;
+            overflow-y: auto;
+            max-height: 600px;
+        }
+
+        .editor-track {
+            flex: 1;
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            cursor: pointer;
+            min-height: 400px;
+        }
+
+        .editor-track:active {
+            background: rgba(233, 69, 96, 0.2);
+        }
+
+        .editor-note {
+            position: absolute;
+            width: 90%;
+            left: 5%;
+            height: 45px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-weight: bold;
+            font-size: 0.85rem;
+            cursor: pointer;
+            z-index: 2;
+        }
+
+        .editor-note.track0 { background: linear-gradient(135deg, #ff6b6b, #ee5a5a); }
+        .editor-note.track1 { background: linear-gradient(135deg, #4ecdc4, #44a8a0); }
+        .editor-note.track2 { background: linear-gradient(135deg, #ffe66d, #ffd93d); }
+        .editor-note.track3 { background: linear-gradient(135deg, #a29bfe, #8c7ae6); }
+        .editor-note.track4 { background: linear-gradient(135deg, #fd79a8, #e84393); }
+        .editor-note.track5 { background: linear-gradient(135deg, #74b9ff, #0984e3); }
+        .editor-note.track6 { background: linear-gradient(135deg, #55efc4, #00b894); }
+
+        .editor-keys {
+            display: flex;
+            height: 80px;
+            flex-shrink: 0;
+        }
+
+        .editor-key {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #fff;
+            cursor: pointer;
+            border: none;
+            outline: none;
+        }
+
+        .editor-key span {
+            font-size: 1.5rem;
+        }
+
+        .editor-key small {
+            font-size: 0.7rem;
+            opacity: 0.9;
+        }
+
+        .editor-key.track0 { background: linear-gradient(180deg, #ff6b6b, #c0392b); }
+        .editor-key.track1 { background: linear-gradient(180deg, #4ecdc4, #16a085); }
+        .editor-key.track2 { background: linear-gradient(180deg, #ffe66d, #f39c12); }
+        .editor-key.track3 { background: linear-gradient(180deg, #a29bfe, #6c5ce7); }
+        .editor-key.track4 { background: linear-gradient(180deg, #fd79a8, #d63384); }
+        .editor-key.track5 { background: linear-gradient(180deg, #74b9ff, #0984e3); }
+        .editor-key.track6 { background: linear-gradient(180deg, #55efc4, #00b894); }
+
+        .playback-controls {
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.4);
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            margin: 0 auto;
+            overflow: hidden;
+        }
+
+        .track-container {
+            display: flex;
+            height: calc(100% - 80px);
+            position: relative;
+        }
+
+        .track {
+            flex: 1;
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            cursor: pointer;
+        }
+
+        .track:last-child {
+            border-right: none;
+        }
+
+        .track:active {
+            background: rgba(233, 69, 96, 0.15);
+        }
+
+        .key-line {
+            position: absolute;
+            bottom: 80px;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: linear-gradient(90deg, #00d9ff, #00ff88);
+            z-index: 2;
+            box-shadow: 0 0 15px #00d9ff;
+        }
+
+        .note {
+            position: absolute;
+            width: 90%;
+            left: 5%;
+            height: 55px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #fff;
+            z-index: 1;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        }
+
+
+
+        .note.hit {
+            animation: noteHit 0.3s ease-out forwards;
+        }
+
+        @keyframes noteHit {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(1.3); opacity: 0; }
+        }
+
+        .note.track0 { background: linear-gradient(135deg, #ff6b6b, #ee5a5a); }
+        .note.track1 { background: linear-gradient(135deg, #4ecdc4, #44a8a0); }
+        .note.track2 { background: linear-gradient(135deg, #ffe66d, #ffd93d); }
+        .note.track3 { background: linear-gradient(135deg, #a29bfe, #8c7ae6); }
+        .note.track4 { background: linear-gradient(135deg, #fd79a8, #e84393); }
+        .note.track5 { background: linear-gradient(135deg, #74b9ff, #0984e3); }
+        .note.track6 { background: linear-gradient(135deg, #55efc4, #00b894); }
+
+        .keys {
+            display: flex;
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 80px;
+            z-index: 3;
+        }
+
+        .key {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #fff;
+            cursor: pointer;
+            border: none;
+            outline: none;
+        }
+
+        .key span {
+            font-size: 1.6rem;
+        }
+
+        .key small {
+            font-size: 0.65rem;
+            opacity: 0.9;
+        }
+
+        .key:active, .key.pressed {
+            filter: brightness(1.3);
+        }
+
+        .key.track0 { background: linear-gradient(180deg, #ff6b6b, #c0392b); }
+        .key.track1 { background: linear-gradient(180deg, #4ecdc4, #16a085); }
+        .key.track2 { background: linear-gradient(180deg, #ffe66d, #f39c12); }
+        .key.track3 { background: linear-gradient(180deg, #a29bfe, #6c5ce7); }
+        .key.track4 { background: linear-gradient(180deg, #fd79a8, #d63384); }
+        .key.track5 { background: linear-gradient(180deg, #74b9ff, #0984e3); }
+        .key.track6 { background: linear-gradient(180deg, #55efc4, #00b894); }
+
+        .score-display {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            color: #fff;
+            font-size: 0.95rem;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 8px 16px;
+            border-radius: 20px;
+            z-index: 10;
+        }
+
+        .combo-display {
+            position: absolute;
+            top: 48px;
+            left: 12px;
+            color: #ffe66d;
+            font-size: 0.85rem;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 6px 14px;
+            border-radius: 15px;
+            z-index: 10;
+        }
+
+        .start-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+        }
+
+        .start-btn {
+            padding: 20px 60px;
+            font-size: 1.3rem;
+            background: linear-gradient(135deg, #e94560, #c73e54);
+            color: #fff;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 5px 30px rgba(233, 69, 96, 0.5);
+            animation: btnPulse 2s infinite;
+            font-weight: bold;
+        }
+
+        .title-text {
+            color: #fff;
+            font-size: 1.8rem;
+            margin-bottom: 30px;
+            text-shadow: 0 0 30px #e94560;
+            text-align: center;
+        }
+
+        .message {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ffe66d;
+            font-size: 2rem;
+            font-weight: bold;
+            text-shadow: 0 0 30px #ffe66d;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 15;
+        }
+
+        .message.show {
+            animation: messageShow 0.6s ease-out;
+        }
+
+        @keyframes messageShow {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
+            30% { opacity: 1; transform: translate(-50%, -50%) scale(1.3); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+        }
+
+        .final-score {
+            color: #fff;
+            font-size: 1.2rem;
+            margin-top: 20px;
+        }
+
+        .final-score span {
+            color: #ffe66d;
+            font-size: 1.5rem;
+        }
+
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 200px;
+            color: #fff;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.5);
+            padding: 40px;
+            font-size: 1rem;
+        }
+
+        .toast {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: #fff;
+            padding: 15px 30px;
+            border-radius: 10px;
+            z-index: 100;
+            display: none;
+            font-size: 1rem;
+        }
+
+        .toast.show {
+            display: block;
+            animation: toastShow 0.3s ease-out;
+        }
+
+        @keyframes toastShow {
+            from { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+            to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        }
+
+        .confirm-dialog {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 50;
+        }
+
+        .confirm-dialog.show {
+            display: flex;
+        }
+
+        .confirm-content {
+            background: #1a1a4e;
+            padding: 25px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 300px;
+            width: 80%;
+        }
+
+        .confirm-content h3 {
+            color: #fff;
+            margin-bottom: 20px;
+            font-size: 1.1rem;
+        }
+
+        .confirm-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .confirm-btn {
+            padding: 10px 25px;
+            border: none;
+            border-radius: 20px;
+            font-size: 1rem;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .confirm-btn.cancel {
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+        }
+
+        .confirm-btn.confirm {
+            background: #e94560;
+            color: #fff;
+        }
+
+        .editor-empty-tip {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: rgba(255, 255, 255, 0.25);
+            font-size: 1.1rem;
+            text-align: center;
+            pointer-events: none;
+        }
+
+        .game-back-btn {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            padding: 10px 18px;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            border-radius: 20px;
+            color: #fff;
+            font-size: 0.9rem;
+            cursor: pointer;
+            z-index: 25;
+        }
+
+        .volume-control {
+            position: absolute;
+            top: 12px;
+            right: 100px;
+            z-index: 25;
+        }
+
+        .volume-btn {
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            border-radius: 20px;
+            color: #fff;
+            font-size: 0.9rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .volume-slider {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 5px;
+            width: 100px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border-radius: 10px;
+            display: none;
+            z-index: 30;
+        }
+
+        .volume-slider.show {
+            display: block;
+        }
+
+        .volume-slider input {
+            width: 100%;
+            margin: 5px 0;
+        }
+
+        .volume-level {
+            color: #fff;
+            font-size: 0.8rem;
+            text-align: center;
+            margin-top: 5px;
+        }
+
+        @media (max-width: 480px) {
+            .splash-title {
+                font-size: 2rem;
+                margin-bottom: 30px;
+            }
+            
+            .splash-btn {
+                padding: 18px 45px;
+                font-size: 1.3rem;
+            }
+            
+            .header h1 {
+                font-size: 1.1rem;
+            }
+            
+            .header-btn {
+                padding: 8px 16px;
+                font-size: 0.85rem;
+            }
+            
+            .song-card {
+                padding: 12px;
+                margin-bottom: 10px;
+            }
+            
+            .song-card .title {
+                font-size: 1rem;
+            }
+            
+            .start-btn {
+                padding: 18px 50px;
+                font-size: 1.2rem;
+            }
+            
+            .editor-header {
+                padding: 8px 12px;
+            }
+            
+            .editor-header input {
+                padding: 8px 12px;
+                font-size: 0.85rem;
+            }
+            
+            .speed-control input {
+                width: 50px;
+                padding: 6px !important;
+            }
+            
+            .editor-btn {
+                padding: 8px 14px;
+                font-size: 0.85rem;
+            }
+            
+            .key span {
+                font-size: 1.4rem;
+            }
+            
+            .key small {
+                font-size: 0.6rem;
+            }
+            
+            .score-display,
+            .combo-display {
+                font-size: 0.85rem;
+                padding: 6px 12px;
+            }
+        }
+        
+        @media (max-width: 360px) {
+            .splash-title {
+                font-size: 1.8rem;
+                margin-bottom: 25px;
+            }
+            
+            .splash-btn {
+                padding: 16px 40px;
+                font-size: 1.2rem;
+            }
+            
+            .header h1 {
+                font-size: 1rem;
+            }
+            
+            .header-btn {
+                padding: 6px 12px;
+                font-size: 0.8rem;
+            }
+            
+            .start-btn {
+                padding: 16px 40px;
+                font-size: 1.1rem;
+            }
+        }
+
+        /* 登录注册界面样式 */
+        .auth-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(180deg, #0c1445 0%, #1a1a4e 50%, #2d1b4e 100%);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 101;
+        }
+
+        .auth-screen.active {
+            display: flex;
+        }
+
+        .auth-container {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 400px;
+            width: 90%;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .auth-header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .auth-header h2 {
+            color: #fff;
+            font-size: 1.8rem;
+            margin: 0;
+            text-shadow: 0 0 20px #e94560;
+        }
+
+        .auth-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .form-group label {
+            color: #fff;
+            font-size: 0.95rem;
+            font-weight: bold;
+        }
+
+        .form-group input {
+            padding: 12px 16px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+            font-size: 1rem;
+        }
+
+        .form-group input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .auth-btn {
+            padding: 14px;
+            background: linear-gradient(135deg, #e94560, #c73e54);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .auth-btn:active {
+            transform: scale(0.98);
+        }
+
+        .auth-toggle {
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        .auth-toggle span {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .auth-toggle span:hover {
+            color: #fff;
+        }
+
+        /* 排行榜样式 */
+        .leaderboard-dialog {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .leaderboard-dialog.show {
+            display: flex;
+        }
+
+        .leaderboard-content {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .leaderboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .leaderboard-header h2 {
+            color: #fff;
+            font-size: 1.5rem;
+            margin: 0;
+        }
+
+        .leaderboard-close {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            color: #fff;
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .leaderboard-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .admin-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .admin-song-item {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 4px solid #ffc107;
+        }
+
+        .admin-song-info {
+            flex: 1;
+        }
+
+        .admin-song-title {
+            color: #fff;
+            font-size: 1rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .admin-song-author {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.85rem;
+        }
+
+        .admin-song-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .admin-approve-btn {
+            padding: 8px 16px;
+            background: #4CAF50;
+            border: none;
+            border-radius: 6px;
+            color: #fff;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .admin-reject-btn {
+            padding: 8px 16px;
+            background: #f44336;
+            border: none;
+            border-radius: 6px;
+            color: #fff;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .leaderboard-item {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 4px solid #e94560;
+        }
+
+        .leaderboard-item.top {
+            border-left-color: #ffe66d;
+            background: rgba(255, 230, 109, 0.1);
+        }
+
+        .leaderboard-rank {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #fff;
+            min-width: 30px;
+        }
+
+        .leaderboard-id {
+            flex: 1;
+            color: #fff;
+            font-size: 1rem;
+        }
+
+        .leaderboard-score {
+            color: #ffe66d;
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+
+        /* 搜索功能样式 */
+        .search-container {
+            padding: 15px;
+            max-width: 500px;
+            margin: 0 auto;
+            position: sticky;
+            top: 0;
+            background: rgba(12, 20, 69, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 10;
+        }
+
+        .search-box {
+            display: flex;
+            gap: 10px;
+        }
+
+        .search-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 25px;
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+            font-size: 1rem;
+        }
+
+        .search-input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .search-btn {
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #e94560, #c73e54);
+            color: #fff;
+            border: none;
+            border-radius: 25px;
+            font-size: 1rem;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        /* 歌曲卡片增强样式 */
+        .song-card {
+            position: relative;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+
+        .song-card:active {
+            transform: scale(0.98);
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .song-card .title {
+            color: #fff;
+            font-size: 1.1rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .song-card .author {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.8rem;
+            margin-bottom: 8px;
+        }
+
+        .song-card .stats {
+            display: flex;
+            gap: 12px;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.75rem;
+        }
+
+        .song-card .like-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            border-radius: 50%;
+            width: 35px;
+            height: 35px;
+            color: #fff;
+            font-size: 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .song-card .like-btn.liked {
+            background: #e94560;
+            color: #fff;
+        }
+
+        .song-card .user-score {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.8rem;
+        }
+
+        /* 头部增强样式 */
+        .header {
+            width: 100%;
+            padding: 15px;
+            text-align: center;
+            background: linear-gradient(180deg, rgba(233, 69, 96, 0.3) 0%, transparent 100%);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 20;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .user-info {
+            color: #fff;
+            font-size: 0.9rem;
+            margin-right: 10px;
+        }
+
+        .leaderboard-btn {
+            padding: 10px 18px;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            border-radius: 20px;
+            color: #fff;
+            font-size: 0.9rem;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .music-btn {
+            padding: 10px 18px;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            border-radius: 20px;
+            color: #fff;
+            font-size: 0.9rem;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .music-btn.muted {
+            background: rgba(255, 255, 255, 0.1);
+            opacity: 0.7;
+        }
+
+        .sfx-btn {
+            padding: 10px 18px;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            border-radius: 20px;
+            color: #fff;
+            font-size: 0.9rem;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .sfx-btn.muted {
+            background: rgba(255, 255, 255, 0.1);
+            opacity: 0.7;
+        }
+
+        .admin-btn {
+            padding: 10px 18px;
+            background: rgba(255, 193, 7, 0.4);
+            border: none;
+            border-radius: 20px;
+            color: #fff;
+            font-size: 0.9rem;
+            cursor: pointer;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <!-- 移除横屏提示，直接进入游戏 -->
+
+    <div class="splash-screen" id="splashScreen">
+        <div class="splash-background"></div>
+        <div class="splash-overlay"></div>
+        <div class="splash-content">
+            <div class="splash-title">
+                <span>钢</span><span>琴</span><span>块</span><span>自</span><span>助</span>
+            </div>
+            <div class="slide-unlock" id="slideUnlock">
+                <div class="slide-unlock-track">
+                    <span class="slide-unlock-text" id="slideText">滑动开始</span>
+                </div>
+                <div class="slide-unlock-thumb" id="slideThumb">→</div>
+                <div class="slide-unlock-success" id="slideSuccess">
+                    <span>开始游戏</span>
+                </div>
+            </div>
+        </div>
+        <button class="music-btn splash-music-btn" id="splashMusicBtn">🎵 音乐</button>
+    </div>
+
+    <div class="auth-screen" id="authScreen">
+        <button class="music-btn splash-music-btn" id="authMusicBtn">🎵 音乐</button>
+        <div class="auth-container">
+            <div class="auth-header">
+                <h2 id="authTitle">登录</h2>
+            </div>
+            <div class="auth-form">
+                <div class="form-group">
+                    <label for="authId">ID</label>
+                    <input type="text" id="authId" placeholder="请输入ID">
+                </div>
+                <div class="form-group">
+                    <label for="authPassword">密码</label>
+                    <input type="password" id="authPassword" placeholder="请输入密码">
+                </div>
+                <button class="auth-btn" id="authSubmitBtn">登录</button>
+                <div class="auth-toggle">
+                    <span id="authToggleText">没有账号？点击注册</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="header" id="gameHeader">
+        <h1>🎹 钢琴块</h1>
+        <div class="header-actions">
+            <span class="user-info" id="userInfo">游客</span>
+            <button class="leaderboard-btn" id="leaderboardBtn">🏆 排行榜</button>
+            <button class="music-btn" id="musicBtn">🎵 音乐</button>
+            <button class="sfx-btn" id="sfxBtn">🔊 音效</button>
+            <button class="header-btn" id="createBtn">+ 制作</button>
+            <button class="admin-btn" id="adminBtn" style="display:none;">⚙️ 审核</button>
+        </div>
+    </div>
+
+    <div class="screen" id="lobbyScreen">
+        <div class="lobby-container" id="lobbyContainer"></div>
+    </div>
+
+    <div class="screen" id="editorScreen">
+        <div class="editor-container">
+            <div class="editor-header">
+                <button class="editor-btn secondary" id="backBtn">← 返回</button>
+                <input type="text" id="songTitle" placeholder="歌曲名称">
+                <div class="speed-control">
+                    <span>速度:</span>
+                    <input type="number" id="songSpeed" value="1.0" step="0.1" min="0.5" max="2.0">
+                </div>
+                <div class="duration-control">
+                    <span>长度:</span>
+                    <div class="duration-buttons">
+                        <button class="duration-btn" data-duration="200">短</button>
+                        <button class="duration-btn active" data-duration="400">中</button>
+                        <button class="duration-btn" data-duration="800">长</button>
+                        <button class="duration-btn" data-duration="1200">特长</button>
+                    </div>
+                    <input type="number" id="customDuration" value="400" step="50" min="100" max="5000" placeholder="自定义长度">
+                    <button class="editor-btn secondary" id="setDurationBtn">设置</button>
+                </div>
+                <div class="octave-control">
+                    <span>八度:</span>
+                    <select id="octaveSelect">
+                        <option value="0">低八度</option>
+                        <option value="1" selected>中八度</option>
+                        <option value="2">高八度</option>
+                    </select>
+                </div>
+                <button class="editor-btn secondary" id="deleteBtn">删除模式</button>
+                <button class="editor-btn primary" id="saveBtn">发布</button>
+            </div>
+            <div class="editor-area">
+                <div class="editor-tracks" id="editorTracks">
+                    <div class="editor-track" data-track="0"></div>
+                    <div class="editor-track" data-track="1"></div>
+                    <div class="editor-track" data-track="2"></div>
+                    <div class="editor-track" data-track="3"></div>
+                    <div class="editor-track" data-track="4"></div>
+                    <div class="editor-track" data-track="5"></div>
+                    <div class="editor-track" data-track="6"></div>
+                </div>
+                <div class="editor-keys">
+                    <button class="editor-key track0" data-track="0"><span>1</span><small>C</small></button>
+                    <button class="editor-key track1" data-track="1"><span>2</span><small>D</small></button>
+                    <button class="editor-key track2" data-track="2"><span>3</span><small>E</small></button>
+                    <button class="editor-key track3" data-track="3"><span>4</span><small>F</small></button>
+                    <button class="editor-key track4" data-track="4"><span>5</span><small>G</small></button>
+                    <button class="editor-key track5" data-track="5"><span>6</span><small>A</small></button>
+                    <button class="editor-key track6" data-track="6"><span>7</span><small>B</small></button>
+                </div>
+                <div class="editor-empty-tip" id="editorTip">点击按键添加音符</div>
+            </div>
+            <div class="playback-controls">
+                <button class="editor-btn secondary" id="previewBtn">▶ 预览</button>
+                <button class="editor-btn secondary" id="clearBtn">清空</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="screen" id="gameScreen">
+        <div class="game-container">
+            <button class="game-back-btn" id="gameBackBtn">← 返回</button>
+            <div class="volume-control">
+                <button class="volume-btn" id="volumeBtn">🔊 <span id="volumeLevel">80%</span></button>
+                <div class="volume-slider" id="volumeSlider">
+                    <input type="range" id="volumeRange" min="0" max="100" value="80">
+                    <div class="volume-level" id="volumeLevelDisplay">80%</div>
+                </div>
+            </div>
+            <div class="track-container" id="trackContainer"></div>
+            <div class="key-line"></div>
+            <div class="keys" id="gameKeys"></div>
+            <div class="score-display">得分: <span id="score">0</span></div>
+            <div class="combo-display">连击: <span id="combo">0</span></div>
+            <div class="message" id="message"></div>
+            <div class="start-overlay" id="startOverlay">
+                <div class="title-text" id="gameTitle">歌曲名</div>
+                <button class="start-btn" id="gameStartBtn">开始游戏</button>
+                <div class="final-score" id="finalScore" style="display: none;">
+                    得分: <span id="finalScoreValue">0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <div class="confirm-dialog" id="confirmDialog">
+        <div class="confirm-content">
+            <h3 id="confirmText">确认发布?</h3>
+            <div class="confirm-buttons">
+                <button class="confirm-btn cancel" id="confirmCancel">取消</button>
+                <button class="confirm-btn confirm" id="confirmOk">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="leaderboard-dialog" id="leaderboardDialog">
+        <div class="leaderboard-content">
+            <div class="leaderboard-header">
+                <h2>🏆 排行榜</h2>
+                <button class="leaderboard-close" id="leaderboardClose">&times;</button>
+            </div>
+            <div class="leaderboard-list" id="leaderboardList">
+                <!-- 排行榜内容将通过JavaScript动态生成 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 管理员审核弹窗 -->
+    <div class="leaderboard-dialog" id="adminDialog">
+        <div class="leaderboard-content">
+            <div class="leaderboard-header">
+                <h2>⚙️ 歌曲审核</h2>
+                <button class="leaderboard-close" id="adminClose">&times;</button>
+            </div>
+            <div class="admin-list" id="adminList">
+                <!-- 待审核歌曲列表 -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://afibpljofhbzgkvmgpil.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_URlgq9x3cvSHKLq-LHHSXA_cvRxzMVn';
+        
+        let supabaseClient;
+        
+        // 初始化Supabase客户端
+        function initSupabase() {
+            try {
+                if (window.supabase && window.supabase.createClient) {
+                    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                    console.log('Supabase客户端初始化成功');
+                    return true;
+                } else if (window.createClient) {
+                    supabaseClient = window.createClient(SUPABASE_URL, SUPABASE_KEY);
+                    console.log('Supabase客户端初始化成功 (使用全局createClient)');
+                    return true;
+                } else {
+                    console.error('Supabase库未正确加载');
+                    return false;
+                }
+            } catch (error) {
+                console.error('Supabase初始化失败:', error);
+                return false;
+            }
+        }
+        
+        // 初始化背景音乐 - 使用更柔和的音色
+        function initBackgroundMusic() {
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+
+            if (!backgroundMusic) {
+                backgroundMusic = {
+                    bass: audioContext.createOscillator(),
+                    chord1: audioContext.createOscillator(),
+                    chord2: audioContext.createOscillator(),
+                    bassGain: audioContext.createGain(),
+                    chord1Gain: audioContext.createGain(),
+                    chord2Gain: audioContext.createGain(),
+                    chordPattern: [0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1],
+                    bassPattern: [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
+                    step: 0,
+                    tempo: 90,
+                    interval: null
+                };
+
+                backgroundMusic.bass.type = 'sine';
+                backgroundMusic.bass.frequency.setValueAtTime(65.41, audioContext.currentTime);
+
+                backgroundMusic.chord1.type = 'triangle';
+                backgroundMusic.chord1.frequency.setValueAtTime(130.81, audioContext.currentTime);
+
+                backgroundMusic.chord2.type = 'triangle';
+                backgroundMusic.chord2.frequency.setValueAtTime(164.81, audioContext.currentTime);
+
+                backgroundMusic.bass.connect(backgroundMusic.bassGain);
+                backgroundMusic.chord1.connect(backgroundMusic.chord1Gain);
+                backgroundMusic.chord2.connect(backgroundMusic.chord2Gain);
+
+                const filter = audioContext.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(800, audioContext.currentTime);
+
+                backgroundMusic.bassGain.connect(filter);
+                backgroundMusic.chord1Gain.connect(filter);
+                backgroundMusic.chord2Gain.connect(filter);
+                filter.connect(audioContext.destination);
+
+                backgroundMusic.bassGain.connect(audioContext.destination);
+                backgroundMusic.chord1Gain.connect(audioContext.destination);
+                backgroundMusic.chord2Gain.connect(audioContext.destination);
+
+                backgroundMusic.bassGain.gain.setValueAtTime(0, audioContext.currentTime);
+                backgroundMusic.chord1Gain.gain.setValueAtTime(0, audioContext.currentTime);
+                backgroundMusic.chord2Gain.gain.setValueAtTime(0, audioContext.currentTime);
+
+                backgroundMusic.bass.start();
+                backgroundMusic.chord1.start();
+                backgroundMusic.chord2.start();
+
+                backgroundMusicVolume = 0.4;
+            }
+        }
+
+        function playBackgroundMusic() {
+            if (!backgroundMusic) {
+                initBackgroundMusic();
+            }
+
+            if (!backgroundMusic.interval) {
+                const stepDuration = (60 / backgroundMusic.tempo) / 4;
+                
+                backgroundMusic.interval = setInterval(() => {
+                    if (!isBackgroundMusicPlaying) return;
+
+                    const currentTime = audioContext.currentTime;
+                    
+                    if (backgroundMusic.bassPattern[backgroundMusic.step] === 1) {
+                        backgroundMusic.bassGain.gain.setValueAtTime(backgroundMusicVolume * 0.6, currentTime);
+                        backgroundMusic.bassGain.gain.exponentialRampToValueAtTime(0.01, currentTime + 0.4);
+                    }
+
+                    if (backgroundMusic.chordPattern[backgroundMusic.step] === 1) {
+                        backgroundMusic.chord1Gain.gain.setValueAtTime(backgroundMusicVolume * 0.4, currentTime);
+                        backgroundMusic.chord1Gain.gain.exponentialRampToValueAtTime(0.01, currentTime + 0.3);
+                    }
+
+                    if (backgroundMusic.step % 8 === 3 || backgroundMusic.step % 8 === 7) {
+                        backgroundMusic.chord2Gain.gain.setValueAtTime(backgroundMusicVolume * 0.3, currentTime);
+                        backgroundMusic.chord2Gain.gain.exponentialRampToValueAtTime(0.01, currentTime + 0.25);
+                    }
+
+                    backgroundMusic.step = (backgroundMusic.step + 1) % 16;
+                }, stepDuration * 1000);
+
+                isBackgroundMusicPlaying = true;
+                updateMusicButton();
+            }
+        }
+
+        // 停止背景音乐
+        function stopBackgroundMusic() {
+            if (backgroundMusic && backgroundMusic.interval) {
+                clearInterval(backgroundMusic.interval);
+                backgroundMusic.interval = null;
+            }
+            isBackgroundMusicPlaying = false;
+            updateMusicButton();
+        }
+
+        // 切换背景音乐状态
+        function toggleBackgroundMusic() {
+            if (isBackgroundMusicPlaying) {
+                stopBackgroundMusic();
+            } else {
+                playBackgroundMusic();
+            }
+        }
+
+        // 更新音乐按钮状态
+        function updateMusicButton() {
+            const musicBtn = document.getElementById('musicBtn');
+            const splashMusicBtn = document.getElementById('splashMusicBtn');
+            const authMusicBtn = document.getElementById('authMusicBtn');
+            
+            const updateBtn = (btn) => {
+                if (btn) {
+                    if (isBackgroundMusicPlaying) {
+                        btn.textContent = '🎵 音乐';
+                        btn.classList.remove('muted');
+                    } else {
+                        btn.textContent = '🔇 静音';
+                        btn.classList.add('muted');
+                    }
+                }
+            };
+            
+            updateBtn(musicBtn);
+            updateBtn(splashMusicBtn);
+            updateBtn(authMusicBtn);
+        }
+
+        // 更新效果音按钮状态
+        function updateSfxButton() {
+            const sfxBtn = document.getElementById('sfxBtn');
+            if (sfxBtn) {
+                if (soundEffectsEnabled) {
+                    sfxBtn.textContent = '🔊 音效';
+                    sfxBtn.classList.remove('muted');
+                } else {
+                    sfxBtn.textContent = '🔇 静音';
+                    sfxBtn.classList.add('muted');
+                }
+            }
+        }
+
+        // 页面加载时初始化
+        window.addEventListener('load', function() {
+            try {
+                initSupabase();
+                // 延迟初始化背景音乐，确保用户交互后
+                setTimeout(() => {
+                    initBackgroundMusic();
+                    playBackgroundMusic();
+                }, 1000);
+            } catch (error) {
+                console.error('页面加载初始化失败:', error);
+            }
+            return false;
+        });
+
+        // 移除横屏提示，直接允许游戏
+
+        const noteFreqs = {
+            0: 261.63,
+            1: 293.66,
+            2: 329.63,
+            3: 349.23,
+            4: 392.00,
+            5: 440.00,
+            6: 493.88
+        };
+
+        const noteNames = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+
+        let currentScreen = 'splash';
+        let currentSong = null;
+        let editorNotes = [];
+        let isPlaying = false;
+        let score = 0;
+        let combo = 0;
+        let gameStartTime = 0;
+        let animationId = null;
+
+        // 用户状态
+        let currentUser = null;
+        let isAuthModeLogin = true; // true为登录，false为注册
+
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+        function showToast(text) {
+            const toast = document.getElementById('toast');
+            toast.textContent = text;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2000);
+        }
+
+        function showConfirm(text, callback) {
+            const dialog = document.getElementById('confirmDialog');
+            document.getElementById('confirmText').textContent = text;
+            dialog.classList.add('show');
+            
+            document.getElementById('confirmOk').onclick = () => {
+                dialog.classList.remove('show');
+                callback();
+            };
+            document.getElementById('confirmCancel').onclick = () => {
+                dialog.classList.remove('show');
+            };
+        }
+
+        function showScreen(screen) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screen + 'Screen').classList.add('active');
+            currentScreen = screen;
+        }
+
+        async function loadSongs(searchQuery = '') {
+            const container = document.getElementById('lobbyContainer');
+            
+            // 添加搜索框
+            container.innerHTML = `
+                <div class="search-container">
+                    <div class="search-box">
+                        <input type="text" class="search-input" id="searchInput" placeholder="搜索歌曲名称或作者..." value="${searchQuery}">
+                        <button class="search-btn" id="searchBtn">搜索</button>
+                    </div>
+                </div>
+                <div class="loading">加载中...</div>
+            `;
+            
+            // 添加搜索事件
+            document.getElementById('searchBtn').addEventListener('click', function() {
+                const query = document.getElementById('searchInput').value.trim();
+                loadSongs(query);
+                return false;
+            });
+            
+            document.getElementById('searchInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    const query = this.value.trim();
+                    loadSongs(query);
+                }
+                return false;
+            });
+            
+            try {
+                if (!supabaseClient) {
+                    throw new Error('Supabase客户端未初始化');
+                }
+                
+                let query = supabaseClient
+                    .from('songs')
+                    .select('*')
+                    .eq('status', 'approved')
+                    .order('created_at', { ascending: false });
+                
+                // 添加搜索条件
+                if (searchQuery) {
+                    query = query.or(`title.ilike.%${searchQuery}%,author.ilike.%${searchQuery}%`);
+                }
+                
+                const { data, error } = await query;
+                
+                if (error) {
+                    console.error('Supabase错误:', error);
+                    throw error;
+                }
+                
+                console.log('加载到的歌曲:', data);
+                
+                if (!data || data.length === 0) {
+                    container.innerHTML = `
+                        <div class="search-container">
+                            <div class="search-box">
+                                <input type="text" class="search-input" id="searchInput" placeholder="搜索歌曲名称或作者..." value="${searchQuery}">
+                                <button class="search-btn" id="searchBtn">搜索</button>
+                            </div>
+                        </div>
+                        <div class="empty-state">暂无歌曲<br>点击"制作"创建你的作品!</div>
+                    `;
+                    
+                    document.getElementById('searchBtn').addEventListener('click', function() {
+                        const query = document.getElementById('searchInput').value.trim();
+                        loadSongs(query);
+                        return false;
+                    });
+                    
+                    document.getElementById('searchInput').addEventListener('keypress', function(e) {
+                        if (e.key === 'Enter') {
+                            const query = this.value.trim();
+                            loadSongs(query);
+                        }
+                        return false;
+                    });
+                    return;
+                }
+                
+                // 加载用户分数
+                let userScores = {};
+                if (currentUser) {
+                    const { data: scores } = await supabaseClient
+                        .from('scores')
+                        .select('song_id, score')
+                        .eq('user_id', currentUser.id);
+                    
+                    if (scores) {
+                        scores.forEach(s => {
+                            userScores[s.song_id] = s.score;
+                        });
+                    }
+                }
+                
+                // 加载用户点赞
+                let userLikes = {};
+                if (currentUser) {
+                    const { data: likes } = await supabaseClient
+                        .from('likes')
+                        .select('song_id')
+                        .eq('user_id', currentUser.id);
+                    
+                    if (likes) {
+                        likes.forEach(l => {
+                            userLikes[l.song_id] = true;
+                        });
+                    }
+                }
+                
+                container.innerHTML = `
+                    <div class="search-container">
+                        <div class="search-box">
+                            <input type="text" class="search-input" id="searchInput" placeholder="搜索歌曲名称或作者..." value="${searchQuery}">
+                            <button class="search-btn" id="searchBtn">搜索</button>
+                        </div>
+                    </div>
+                    ${data.map(song => `
+                        <div class="song-card" data-id="${song.id}">
+                            <button class="like-btn ${userLikes[song.id] ? 'liked' : ''}" data-song-id="${song.id}">❤️</button>
+                            <div class="title">${song.title}</div>
+                            <div class="author">by ${song.author}</div>
+                            <div class="stats">
+                                <span>🎵 ${Array.isArray(song.notes) ? song.notes.length : 0}</span>
+                                <span>▶ ${song.play_count || 0}</span>
+                                <span>❤️ ${song.like_count || 0}</span>
+                            </div>
+                            ${currentUser && userScores[song.id] ? `<div class="user-score">你的最高分: ${userScores[song.id]}</div>` : ''}
+                        </div>
+                    `).join('')}
+                `;
+                
+                // 添加歌曲点击事件
+                container.querySelectorAll('.song-card').forEach(card => {
+                    card.addEventListener('click', () => playSong(card.dataset.id));
+                });
+                
+                // 重新绑定搜索事件
+                document.getElementById('searchBtn').addEventListener('click', function() {
+                    const query = document.getElementById('searchInput').value.trim();
+                    loadSongs(query);
+                    return false;
+                });
+                
+                document.getElementById('searchInput').addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        const query = this.value.trim();
+                        loadSongs(query);
+                    }
+                    return false;
+                });
+                
+                // 添加点赞事件
+                container.querySelectorAll('.like-btn').forEach(btn => {
+                    btn.addEventListener('click', async function(e) {
+                        e.stopPropagation();
+                        if (!currentUser) {
+                            showToast('请先登录');
+                            return;
+                        }
+                        
+                        const songId = this.dataset.songId;
+                        const isLiked = this.classList.contains('liked');
+                        
+                        try {
+                            if (isLiked) {
+                                // 取消点赞
+                                await supabaseClient
+                                    .from('likes')
+                                    .delete()
+                                    .eq('user_id', currentUser.id)
+                                    .eq('song_id', songId);
+                                
+                                await supabaseClient
+                                    .from('songs')
+                                    .update({ like_count: (data.find(s => s.id === songId)?.like_count || 0) - 1 })
+                                    .eq('id', songId);
+                                
+                                this.classList.remove('liked');
+                                showToast('已取消点赞');
+                            } else {
+                                // 添加点赞
+                                await supabaseClient
+                                    .from('likes')
+                                    .insert({
+                                        user_id: currentUser.id,
+                                        song_id: songId
+                                    });
+                                
+                                await supabaseClient
+                                    .from('songs')
+                                    .update({ like_count: (data.find(s => s.id === songId)?.like_count || 0) + 1 })
+                                    .eq('id', songId);
+                                
+                                this.classList.add('liked');
+                                showToast('已点赞');
+                            }
+                            
+                            // 重新加载歌曲
+                            loadSongs(searchQuery);
+                        } catch (err) {
+                            showToast('操作失败: ' + err.message);
+                        }
+                    });
+                });
+            } catch (err) {
+                console.error('加载歌曲失败:', err);
+                container.innerHTML = `
+                    <div class="search-container">
+                        <div class="search-box">
+                            <input type="text" class="search-input" id="searchInput" placeholder="搜索歌曲名称或作者..." value="${searchQuery}">
+                            <button class="search-btn" id="searchBtn">搜索</button>
+                        </div>
+                    </div>
+                    <div class="empty-state">加载失败<br>错误: ${err.message}</div>
+                `;
+            }
+        }
+
+        // 显示排行榜
+        async function showLeaderboard() {
+            const dialog = document.getElementById('leaderboardDialog');
+            const list = document.getElementById('leaderboardList');
+            
+            list.innerHTML = '<div class="loading">加载中...</div>';
+            dialog.classList.add('show');
+            
+            try {
+                if (!supabaseClient) {
+                    throw new Error('Supabase客户端未初始化');
+                }
+                
+                // 加载用户总分
+                const { data: users, error } = await supabaseClient
+                    .from('users')
+                    .select('id, total_score')
+                    .order('total_score', { ascending: false })
+                    .limit(20);
+                
+                if (error) {
+                    console.error('加载排行榜失败:', error);
+                    throw error;
+                }
+                
+                if (!users || users.length === 0) {
+                    list.innerHTML = '<div class="empty-state">暂无排行数据</div>';
+                    return;
+                }
+                
+                list.innerHTML = users.map((user, index) => {
+                    const isTop = index < 3;
+                    const isCurrentUser = currentUser && user.id === currentUser.id;
+                    return `
+                        <div class="leaderboard-item ${isTop ? 'top' : ''} ${isCurrentUser ? 'current-user' : ''}">
+                            <span class="leaderboard-rank">${index + 1}</span>
+                            <span class="leaderboard-id">${user.id}</span>
+                            <span class="leaderboard-score">${user.total_score || 0}</span>
+                        </div>
+                    `;
+                }).join('');
+            } catch (err) {
+                list.innerHTML = `<div class="empty-state">加载失败: ${err.message}</div>`;
+            }
+        }
+
+        // 管理员审核面板 - 管理所有歌曲
+        async function showAdminPanel() {
+            const dialog = document.getElementById('adminDialog');
+            const list = document.getElementById('adminList');
+            dialog.classList.add('show');
+            
+            if (!currentUser || !currentUser.is_admin) {
+                list.innerHTML = '<div class="empty-state">无权访问</div>';
+                return;
+            }
+            
+            try {
+                // 加载所有歌曲
+                const { data: allSongs, error } = await supabaseClient
+                    .from('songs')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                
+                if (error) throw error;
+                
+                if (!allSongs || allSongs.length === 0) {
+                    list.innerHTML = '<div class="empty-state">暂无歌曲</div>';
+                    return;
+                }
+                
+                list.innerHTML = allSongs.map(song => `
+                    <div class="admin-song-item" data-id="${song.id}">
+                        <div class="admin-song-info">
+                            <div class="admin-song-title">${song.title}</div>
+                            <div class="admin-song-author">作者: ${song.author || '未知'} | 状态: ${song.status || 'approved'}</div>
+                        </div>
+                        <div class="admin-song-actions">
+                            ${song.status !== 'approved' ? `<button class="admin-approve-btn" data-action="approve" data-id="${song.id}">通过</button>` : ''}
+                            <button class="admin-reject-btn" data-action="delete" data-id="${song.id}">删除</button>
+                        </div>
+                    </div>
+                `).join('');
+                
+                // 添加事件委托
+                list.addEventListener('click', async function(e) {
+                    const btn = e.target;
+                    const action = btn.dataset.action;
+                    const id = btn.dataset.id;
+                    
+                    if (!action || !id) return;
+                    
+                    if (action === 'delete') {
+                        if (!confirm('确定要删除这首歌曲吗？')) return;
+                        try {
+                            const { error } = await supabaseClient.from('songs').delete().eq('id', id);
+                            if (error) throw error;
+                            showToast('已删除');
+                            showAdminPanel();
+                        } catch (err) {
+                            alert('删除失败: ' + err.message);
+                        }
+                    } else if (action === 'approve') {
+                        try {
+                            const { error } = await supabaseClient.from('songs').update({ status: 'approved' }).eq('id', id);
+                            if (error) throw error;
+                            showToast('审核通过！');
+                            showAdminPanel();
+                        } catch (err) {
+                            alert('操作失败: ' + err.message);
+                        }
+                    }
+                });
+            } catch (err) {
+                list.innerHTML = `<div class="empty-state">加载失败: ${err.message}</div>`;
+            }
+        }
+
+        // 通过歌曲
+        async function approveSong(songId) {
+            try {
+                const { error } = await supabaseClient
+                    .from('songs')
+                    .update({ status: 'approved' })
+                    .eq('id', songId);
+                
+                if (error) throw error;
+                
+                showToast('审核通过！');
+                showAdminPanel();
+            } catch (err) {
+                showToast('操作失败: ' + err.message);
+            }
+        }
+
+        // 删除歌曲
+        async function deleteSong(songId) {
+            if (!confirm('确定要删除这首歌曲吗？')) return;
+            
+            try {
+                console.log('尝试删除歌曲，ID:', songId, '类型:', typeof songId);
+                console.log('Supabase客户端:', supabaseClient);
+                console.log('用户:', currentUser);
+                
+                // 先测试一下能否读取
+                const testRead = await supabaseClient
+                    .from('songs')
+                    .select('id')
+                    .eq('id', songId);
+                console.log('测试读取:', testRead);
+                
+                const { error, data } = await supabaseClient
+                    .from('songs')
+                    .delete()
+                    .eq('id', songId)
+                    .select();
+                
+                console.log('删除结果:', { error, data });
+                
+                if (error) {
+                    alert('删除失败: ' + error.message);
+                    throw error;
+                }
+                
+                showToast('已删除');
+                showAdminPanel();
+            } catch (err) {
+                alert('删除失败: ' + err.message);
+                console.error('删除歌曲详细错误:', err);
+            }
+        }
+
+        // 拒绝歌曲（保留但不上架）
+        async function rejectSong(songId) {
+            try {
+                const { error } = await supabaseClient
+                    .from('songs')
+                    .update({ status: 'rejected' })
+                    .eq('id', songId);
+                
+                if (error) {
+                    alert('操作失败: ' + error.message);
+                    throw error;
+                }
+                
+                showToast('已拒绝');
+                showAdminPanel();
+            } catch (err) {
+                alert('操作失败: ' + err.message);
+            }
+        }
+
+        // 通过歌曲
+        async function approveSong(songId) {
+            try {
+                const { error } = await supabaseClient
+                    .from('songs')
+                    .update({ status: 'approved' })
+                    .eq('id', songId);
+                
+                if (error) {
+                    alert('操作失败: ' + error.message);
+                    throw error;
+                }
+                
+                showToast('审核通过！');
+                showAdminPanel();
+            } catch (err) {
+                alert('操作失败: ' + err.message);
+            }
+        }
+
+        // 把函数暴露到全局
+        window.approveSong = approveSong;
+        window.deleteSong = deleteSong;
+        window.rejectSong = rejectSong;
+
+        async function playSong(songId) {
+            try {
+                if (!supabaseClient) {
+                    showToast('Supabase未初始化');
+                    return;
+                }
+                
+                const { data, error } = await supabaseClient
+                    .from('songs')
+                    .select('*')
+                    .eq('id', songId)
+                    .single();
+                
+                if (error || !data) {
+                    console.error('加载歌曲失败:', error);
+                    showToast('加载失败: ' + (error?.message || '未知错误'));
+                    return;
+                }
+                
+                console.log('加载的歌曲数据:', data);
+                currentSong = data;
+                
+                // 重置游戏状态
+                score = 0;
+                combo = 0;
+                isPlaying = false;
+                
+                // 确保开始界面显示
+                document.getElementById('score').textContent = '0';
+                document.getElementById('combo').textContent = '0';
+                document.getElementById('gameTitle').textContent = data.title;
+                document.getElementById('finalScore').style.display = 'none';
+                document.getElementById('gameStartBtn').style.display = 'block';
+                document.getElementById('startOverlay').style.display = 'flex';
+                
+                // 更新播放次数
+                await supabaseClient
+                    .from('songs')
+                    .update({ play_count: (data.play_count || 0) + 1 })
+                    .eq('id', songId);
+                
+                initGame();
+                showScreen('game');
+            } catch (err) {
+                console.error('播放歌曲失败:', err);
+                showToast('加载失败: ' + err.message);
+            }
+        }
+
+        function initGame() {
+            const trackContainer = document.getElementById('trackContainer');
+            const gameKeys = document.getElementById('gameKeys');
+            
+            trackContainer.innerHTML = '';
+            gameKeys.innerHTML = '';
+            
+            for (let i = 0; i < 7; i++) {
+                const track = document.createElement('div');
+                track.className = 'track';
+                track.dataset.track = i;
+                
+                // 按下事件
+                track.addEventListener('touchstart', function(e) {
+                    e.preventDefault();
+                    handleGameDown(i);
+                    return false;
+                }, {passive: false});
+                track.addEventListener('mousedown', function() {
+                    handleGameDown(i);
+                    return false;
+                });
+                
+                // 松开事件
+                track.addEventListener('touchend', function() {
+                    handleGameUp(i);
+                    return false;
+                });
+                track.addEventListener('mouseup', function() {
+                    handleGameUp(i);
+                    return false;
+                });
+                track.addEventListener('mouseleave', function() {
+                    handleGameUp(i);
+                    return false;
+                });
+                
+                trackContainer.appendChild(track);
+                
+                const key = document.createElement('button');
+                key.className = `key track${i}`;
+                key.dataset.track = i;
+                key.innerHTML = `<span>${i + 1}</span><small>${noteNames[i]}</small>`;
+                
+                // 按下事件
+                key.addEventListener('touchstart', function(e) {
+                    e.preventDefault();
+                    handleGameDown(i);
+                    return false;
+                }, {passive: false});
+                key.addEventListener('mousedown', function() {
+                    handleGameDown(i);
+                    return false;
+                });
+                
+                // 松开事件
+                key.addEventListener('touchend', function() {
+                    handleGameUp(i);
+                    key.classList.remove('pressed');
+                    return false;
+                });
+                key.addEventListener('mouseup', function() {
+                    handleGameUp(i);
+                    key.classList.remove('pressed');
+                    return false;
+                });
+                key.addEventListener('mouseleave', function() {
+                    handleGameUp(i);
+                    key.classList.remove('pressed');
+                    return false;
+                });
+                
+                gameKeys.appendChild(key);
+            }
+        }
+
+        // 按下处理
+        function handleGameDown(track) {
+            const key = document.querySelector(`#gameKeys .key[data-track="${track}"]`);
+            if (key) key.classList.add('pressed');
+            
+            // 触发点击检测
+            checkHit(track);
+        }
+
+        // 松开处理
+        function handleGameUp(track) {
+            const key = document.querySelector(`#gameKeys .key[data-track="${track}"]`);
+            if (key) key.classList.remove('pressed');
+        }
+
+        function playTone(freq, duration, volume = 0.8) {
+            if (audioContext.state === 'suspended') audioContext.resume();
+            
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.value = freq;
+            oscillator.type = 'sine';
+            
+            // 使用全局音量控制
+            const finalVolume = volume * volumeLevel;
+            gainNode.gain.setValueAtTime(finalVolume, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + duration);
+        }
+
+        let heldTracks = new Set(); // 记录正在按住的轨道
+        let eliminatedNotes = new Set(); // 记录已消除的音符索引
+
+        function checkHit(track) {
+            if (!isPlaying) return;
+            
+            const currentTime = Date.now() - gameStartTime;
+            const speed = currentSong?.speed || 1.0;
+            const noteSpeed = 0.35 * speed;
+            
+            const notes = Array.isArray(currentSong?.notes) ? currentSong.notes : [];
+            
+            for (let i = 0; i < notes.length; i++) {
+                const note = notes[i];
+                
+                // 跳过已消除的音符
+                if (eliminatedNotes.has(i)) continue;
+                
+                if (note.track !== track) continue;
+                
+                // 使用与updateGameNotes一致的计算公式
+                const noteReachTime = note.time / speed;
+                const timeDiff = currentTime - noteReachTime;
+                
+                // 在音符到达按键位置附近时允许消除
+                if (Math.abs(timeDiff * noteSpeed) < 150) {
+                    eliminateNormalNote(track, i, Math.abs(timeDiff * 1000));
+                    break;
+                }
+            }
+        }
+
+        // 消除普通方块
+        function eliminateNormalNote(track, noteIndex, timeDiff) {
+            // 标记音符为已消除
+            eliminatedNotes.add(noteIndex);
+            
+            const notes = Array.isArray(currentSong?.notes) ? currentSong.notes : [];
+            const note = notes[noteIndex];
+            
+            // 计算带八度的频率
+            const octaveMultiplier = Math.pow(2, (note.octave || 1) - 1);
+            const freq = noteFreqs[track] * octaveMultiplier;
+            
+            // 播放音效
+            playTone(freq, 0.3, 0.4);
+            
+            // 计算方块与按键的重合度判定
+            const containerHeight = document.querySelector('.track-container').offsetHeight;
+            const keyLineY = containerHeight - 80;
+            const noteSpeed = 0.35 * (currentSong?.speed || 1.0);
+            
+            const currentTime = Date.now() - gameStartTime;
+            const speed = currentSong?.speed || 1.0;
+            
+            // 计算音符当前的位置
+            const noteY = keyLineY - (note.time / speed - currentTime) * noteSpeed;
+            
+            // 计算重合度 - 按键位置在containerHeight - 80到containerHeight之间
+            const noteTop = noteY;
+            const noteBottom = noteY + 55;
+            const keyTop = keyLineY - 10;
+            const keyBottom = containerHeight;
+            
+            // 计算重叠区域
+            const overlapTop = Math.max(noteTop, keyTop);
+            const overlapBottom = Math.min(noteBottom, keyBottom);
+            const overlapHeight = Math.max(0, overlapBottom - overlapTop);
+            const noteHeight = 55;
+            
+            // 重合百分比
+            const overlapPercent = (overlapHeight / noteHeight) * 100;
+            
+            // 根据重合度判定
+            let points = 15;
+            let message = '一般';
+            
+            if (overlapPercent >= 90) {
+                points = 100;
+                message = '完美! ✨';
+                showHitAnimation(track, 'perfect');
+                playComboVoice('perfect');
+            } else if (overlapPercent >= 60) {
+                points = 50;
+                message = '不错! 👍';
+                showHitAnimation(track, 'good');
+                playComboVoice('good');
+            } else {
+                showHitAnimation(track, 'normal');
+                playComboVoice('normal');
+            }
+            
+            // 更新分数
+            score += points;
+            combo++;
+            document.getElementById('score').textContent = score;
+            document.getElementById('combo').textContent = combo;
+            showGameMessage(message);
+            
+            // 检查连击数触发特效
+            checkComboEffects();
+        }
+
+        // 效果音开关
+        let soundEffectsEnabled = true;
+        
+        // 播放连击语音提示
+        function playComboVoice(type) {
+            if (!soundEffectsEnabled || audioContext.state === 'suspended') return;
+            
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            
+            osc.connect(gain);
+            gain.connect(audioContext.destination);
+            
+            // 音量调小
+            if (type === 'perfect') {
+                osc.frequency.setValueAtTime(880, audioContext.currentTime);
+                osc.type = 'sine';
+                gain.gain.setValueAtTime(0.08, audioContext.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+            } else if (type === 'good') {
+                osc.frequency.setValueAtTime(660, audioContext.currentTime);
+                osc.type = 'sine';
+                gain.gain.setValueAtTime(0.06, audioContext.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.12);
+            } else {
+                osc.frequency.setValueAtTime(440, audioContext.currentTime);
+                osc.type = 'sine';
+                gain.gain.setValueAtTime(0.05, audioContext.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+            }
+            
+            osc.start();
+            osc.stop(audioContext.currentTime + 0.2);
+        }
+
+        // 检查连击特效
+        let comboEffectShown = { 20: false, 40: false };
+        
+        function checkComboEffects() {
+            if (combo >= 20 && combo < 40 && !comboEffectShown[20]) {
+                showComboEffect('blue');
+                showComboMessage(20);
+                comboEffectShown[20] = true;
+                comboEffectShown[40] = false;
+            }
+            else if (combo >= 40 && !comboEffectShown[40]) {
+                showComboEffect('gold');
+                showComboMessage(40);
+                comboEffectShown[40] = true;
+            }
+            if (combo < 20) {
+                comboEffectShown[20] = false;
+                comboEffectShown[40] = false;
+            } else if (combo < 40) {
+                comboEffectShown[40] = false;
+            }
+        }
+
+        // 显示连击特效 - 激光效果
+        function showComboEffect(type) {
+            const gameScreen = document.getElementById('gameScreen');
+            const color = type === 'gold' ? '#ffd700' : '#00bfff';
+            const glowColor = type === 'gold' ? 'rgba(255, 215, 0, 0.6)' : 'rgba(0, 191, 255, 0.5)';
+            const duration = type === 'gold' ? 2500 : 2000;
+            
+            // 从左边开始发射激光，逐渐覆盖整个屏幕
+            const laser = document.createElement('div');
+            laser.style.position = 'absolute';
+            laser.style.left = '0';
+            laser.style.top = '0';
+            laser.style.bottom = '0';
+            laser.style.width = '4px';
+            laser.style.background = `linear-gradient(180deg, transparent, ${color}, ${color}, transparent)`;
+            laser.style.boxShadow = `0 0 20px ${glowColor}, 0 0 40px ${glowColor}`;
+            laser.style.zIndex = '50';
+            laser.style.pointerEvents = 'none';
+            laser.style.opacity = '0';
+            
+            gameScreen.appendChild(laser);
+            
+            // 激光从左边快速扫过整个屏幕的动画
+            laser.animate([
+                { left: '0', width: '4px', opacity: 1 },
+                { left: '0', width: '20px', opacity: 1 },
+                { left: '0', width: '100%', opacity: 0.8 },
+                { left: '0', width: '100%', opacity: 0 }
+            ], {
+                duration: duration,
+                easing: 'ease-out'
+            });
+            
+            // 同时添加边框发光效果 - 使用四个边框
+            const borderTop = document.createElement('div');
+            const borderRight = document.createElement('div');
+            const borderBottom = document.createElement('div');
+            const borderLeft = document.createElement('div');
+            
+            const borders = [borderTop, borderRight, borderBottom, borderLeft];
+            const borderStyles = [
+                { top: '0', left: '0', right: '0', height: '4px', origin: 'top' },
+                { top: '0', right: '0', bottom: '0', width: '4px', origin: 'right' },
+                { bottom: '0', left: '0', right: '0', height: '4px', origin: 'bottom' },
+                { top: '0', left: '0', bottom: '0', width: '4px', origin: 'left' }
+            ];
+            
+            borders.forEach((border, i) => {
+                Object.assign(border.style, {
+                    position: 'absolute',
+                    background: `linear-gradient(${borderStyles[i].origin === 'left' || borderStyles[i].origin === 'right' ? '180deg' : '90deg'}, transparent, ${color}, transparent)`,
+                    boxShadow: `0 0 15px ${glowColor}`,
+                    zIndex: '49',
+                    pointerEvents: 'none',
+                    opacity: '0',
+                    ...borderStyles[i]
+                });
+                gameScreen.appendChild(border);
+            });
+            
+            // 边框逐渐出现并消失
+            const appearDuration = duration * 0.7;
+            borders.forEach((border, i) => {
+                setTimeout(() => {
+                    border.animate([
+                        { opacity: 0 },
+                        { opacity: 0.8 },
+                        { opacity: 0.8 },
+                        { opacity: 0 }
+                    ], { duration: appearDuration, easing: 'ease-out' });
+                }, i * 150);
+            });
+            
+            setTimeout(() => {
+                laser.remove();
+                borders.forEach(b => b.remove());
+            }, duration);
+        }
+
+        // 显示连击提示 - 放在上方避开消除动画
+        function showComboMessage(count) {
+            const msg = document.createElement('div');
+            msg.style.position = 'absolute';
+            msg.style.top = '15%';
+            msg.style.left = '50%';
+            msg.style.transform = 'translate(-50%, -50%)';
+            msg.style.color = count >= 40 ? '#ffd700' : '#00bfff';
+            msg.style.fontSize = '2.5rem';
+            msg.style.fontWeight = 'bold';
+            msg.style.textShadow = `0 0 30px ${count >= 40 ? 'rgba(255, 215, 0, 0.9)' : 'rgba(0, 191, 255, 0.9)'}, 0 0 60px ${count >= 40 ? 'rgba(255, 215, 0, 0.5)' : 'rgba(0, 191, 255, 0.5)'}`;
+            msg.style.zIndex = '200';
+            msg.style.pointerEvents = 'none';
+            msg.style.opacity = '0';
+            msg.textContent = count + ' COMBO!';
+            
+            document.getElementById('gameScreen').appendChild(msg);
+            
+            msg.animate([
+                { opacity: 0, transform: 'translate(-50%, -50%) scale(0.3)' },
+                { opacity: 1, transform: 'translate(-50%, -50%) scale(1.3)' },
+                { opacity: 1, transform: 'translate(-50%, -50%) scale(1)' },
+                { opacity: 0, transform: 'translate(-50%, -50%) scale(1.4)' }
+            ], { duration: 1500, easing: 'ease-out' });
+            
+            setTimeout(() => msg.remove(), 1500);
+        }
+
+        // 显示消除动画 - 水波半圆向上扩散
+        function showHitAnimation(track, type) {
+            const trackContainer = document.getElementById('trackContainer');
+            const trackElements = trackContainer.querySelectorAll('.track');
+            const targetTrack = trackElements[track];
+            
+            if (!targetTrack) return;
+            
+            // 获取轨道的位置信息
+            const trackRect = targetTrack.getBoundingClientRect();
+            const containerRect = trackContainer.getBoundingClientRect();
+            const centerX = trackRect.left - containerRect.left + trackRect.width / 2;
+            const centerY = containerRect.height - 80 - 20;
+            
+            // 水波颜色 - 金色要更淡
+            let waveColor, glowColor, waveCount;
+            if (type === 'perfect') {
+                waveColor = 'rgba(255, 215, 0, 0.5)';
+                glowColor = 'rgba(255, 215, 0, 0.25)';
+                waveCount = 2;
+            } else if (type === 'good') {
+                waveColor = 'rgba(0, 191, 255, 0.7)';
+                glowColor = 'rgba(0, 191, 255, 0.3)';
+                waveCount = 1;
+            } else {
+                waveColor = 'rgba(255, 255, 255, 0.5)';
+                glowColor = 'rgba(255, 255, 255, 0.2)';
+                waveCount = 1;
+            }
+            
+            // 创建1-2层半圆形水波
+            for (let w = 0; w < waveCount; w++) {
+                setTimeout(() => {
+                    const wave = document.createElement('div');
+                    wave.style.position = 'absolute';
+                    wave.style.left = centerX + 'px';
+                    wave.style.top = centerY + 'px';
+                    wave.style.width = '10px';
+                    wave.style.height = '10px';
+                    wave.style.borderRadius = '50%';
+                    wave.style.background = `radial-gradient(circle, ${waveColor} 0%, transparent 70%)`;
+                    wave.style.transform = 'translate(-50%, -50%)';
+                    wave.style.pointerEvents = 'none';
+                    wave.style.zIndex = '100';
+                    
+                    trackContainer.appendChild(wave);
+                    
+                    // 半圆向上扩散的动画
+                    const duration = type === 'perfect' ? 800 : 500;
+                    const maxHeight = type === 'perfect' ? 350 : 300;
+                    
+                    wave.animate([
+                        { 
+                            transform: 'translate(-50%, -50%) scale(1)',
+                            opacity: 0.7
+                        },
+                        { 
+                            transform: `translate(-50%, -50%) scale(${type === 'perfect' ? 20 : 20})`,
+                            height: maxHeight + 'px',
+                            width: (type === 'perfect' ? 150 : 150) + 'px',
+                            top: (centerY - maxHeight) + 'px',
+                            opacity: 0
+                        }
+                    ], {
+                        duration: duration,
+                        easing: 'ease-out'
+                    });
+                    
+                    setTimeout(() => wave.remove(), duration);
+                }, w * 150);
+            }
+            
+            // 按键闪光效果
+            const keyElements = document.getElementById('gameKeys').querySelectorAll('.key');
+            const targetKey = keyElements[track];
+            
+            if (type === 'perfect') {
+                targetKey.style.boxShadow = `0 0 40px ${glowColor}, inset 0 0 25px rgba(255, 255, 255, 0.4), 0 -80px 60px ${glowColor}`;
+                setTimeout(() => { targetKey.style.boxShadow = ''; }, 400);
+            } else if (type === 'good') {
+                targetKey.style.boxShadow = `0 0 35px ${glowColor}, inset 0 0 18px rgba(255, 255, 255, 0.35), 0 -50px 40px ${glowColor}`;
+                setTimeout(() => { targetKey.style.boxShadow = ''; }, 300);
+            } else {
+                targetKey.style.boxShadow = `0 0 20px ${glowColor}, inset 0 0 12px rgba(255, 255, 255, 0.25)`;
+                setTimeout(() => { targetKey.style.boxShadow = ''; }, 200);
+            }
+        }
+
+        function showGameMessage(text) {
+            const message = document.getElementById('message');
+            message.textContent = text;
+            message.classList.remove('show');
+            void message.offsetWidth;
+            message.classList.add('show');
+        }
+
+        function updateGameNotes() {
+            if (!isPlaying) return;
+            
+            const currentTime = Date.now() - gameStartTime;
+            const speed = currentSong?.speed || 1.0;
+            const containerHeight = document.querySelector('.track-container').offsetHeight;
+            const keyLineY = containerHeight - 80;
+            const noteSpeed = 0.35 * speed;
+            
+            const notes = Array.isArray(currentSong?.notes) ? currentSong.notes : [];
+            const trackContainer = document.getElementById('trackContainer');
+            
+            // 清除旧音符
+            document.querySelectorAll('.note').forEach(n => n.remove());
+            
+            let hasActiveNotes = false;
+            let lastNoteTime = 0;
+            
+            notes.forEach((note, noteIndex) => {
+                // 跳过已消除的音符
+                if (eliminatedNotes.has(noteIndex)) return;
+                
+                const timeDiff = Math.abs(currentTime - note.time / speed);
+                const y = keyLineY - (note.time / speed - currentTime) * noteSpeed;
+                
+                if (y > -50 && y < containerHeight + 50) {
+                    hasActiveNotes = true;
+                    
+                    // 创建音符元素
+                    const noteEl = document.createElement('div');
+                    noteEl.className = `note track${note.track}`;
+                    noteEl.style.top = y + 'px';
+                    noteEl.style.height = '55px';
+                    noteEl.innerHTML = `${noteNames[note.track]}<br><small>${(note.duration || 400)}ms</small>`;
+                    noteEl.dataset.noteIndex = noteIndex;
+                    
+                    // 统一为普通方块样式
+                    noteEl.style.borderRadius = '12px';
+                    noteEl.style.background = `linear-gradient(135deg, ${getTrackColor(note.track)}, ${getTrackColor(note.track, 0.7)})`;
+                    
+                    if (note.track < 7) {
+                        const track = trackContainer.children[note.track];
+                        if (track) {
+                            track.appendChild(noteEl);
+                        }
+                    }
+                }
+                
+                // 记录最后一个音符的时间
+                if (note.time > lastNoteTime) {
+                    lastNoteTime = note.time;
+                }
+            });
+            
+            animationId = requestAnimationFrame(updateGameNotes);
+            
+            // 检查是否所有音符都已播放完毕
+            const totalSongTime = lastNoteTime / speed + 3000; // 增加3秒缓冲
+            if (currentTime > totalSongTime && !hasActiveNotes) {
+                setTimeout(() => {
+                    if (isPlaying && !hasActiveNotes) {
+                        endGame();
+                    }
+                }, 1000); // 额外等待1秒确保没有音符
+            }
+        }
+
+        // 获取轨道颜色
+        function getTrackColor(track, alpha = 1) {
+            const colors = [
+                `rgba(255, 107, 107, ${alpha})`,   // track 0
+                `rgba(78, 205, 196, ${alpha})`,    // track 1
+                `rgba(255, 230, 109, ${alpha})`,   // track 2
+                `rgba(162, 155, 254, ${alpha})`,   // track 3
+                `rgba(253, 121, 168, ${alpha})`,   // track 4
+                `rgba(116, 185, 255, ${alpha})`,   // track 5
+                `rgba(85, 239, 196, ${alpha})`     // track 6
+            ];
+            return colors[track % colors.length];
+        }
+
+        // 更新滑块状态
+        function updateSliderStates(currentTime, speed) {
+            const notes = Array.isArray(currentSong?.notes) ? currentSong.notes : [];
+            
+            sliderStates.forEach((state, track) => {
+                if (state.isHolding) {
+                    const note = notes[state.noteIndex];
+                    if (note) {
+                        const elapsedTime = currentTime - state.startTime;
+                        const totalDuration = note.duration / speed;
+                        const progress = Math.min((elapsedTime / totalDuration) * 100, 100);
+                        
+                        // 更新进度条
+                        const noteElements = document.querySelectorAll(`.note.track${track}.slider-note`);
+                        noteElements.forEach(el => {
+                            const progressBar = el.querySelector('.slider-progress');
+                            if (progressBar) {
+                                progressBar.style.width = progress + '%';
+                            }
+                        });
+                        
+                        // 滑块完成
+                        if (progress >= 100) {
+                            completeSlider(track, state.noteIndex);
+                        }
+                    }
+                }
+            });
+        }
+
+        // 完成滑块
+        function completeSlider(track, noteIndex) {
+            const state = sliderStates.get(track);
+            
+            // 停止音效
+            if (state.audioNode) {
+                const { oscillator, gainNode } = state.audioNode;
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+                oscillator.stop(audioContext.currentTime + 0.2);
+            }
+            
+            // 标记为完成
+            sliderStates.set(track, {
+                ...state,
+                isHolding: false
+            });
+            
+            // 增加分数
+            score += 200;
+            combo++;
+            document.getElementById('score').textContent = score;
+            document.getElementById('combo').textContent = combo;
+            showGameMessage('滑块完成! 🎉');
+            
+            // 移除滑块元素
+            const noteElements = document.querySelectorAll(`.note.track${track}.slider-note`);
+            noteElements.forEach(el => {
+                el.classList.remove('holding');
+                el.classList.add('hit');
+                setTimeout(() => el.remove(), 300);
+            });
+        }
+
+        async function endGame() {
+            isPlaying = false;
+            cancelAnimationFrame(animationId);
+            
+            // 保存用户分数
+            if (currentUser && currentSong) {
+                try {
+                    // 检查是否已有分数
+                    const { data: existingScore } = await supabaseClient
+                        .from('scores')
+                        .select('score')
+                        .eq('user_id', currentUser.id)
+                        .eq('song_id', currentSong.id)
+                        .single();
+                    
+                    if (existingScore) {
+                        // 更新最高分
+                        if (score > existingScore.score) {
+                            await supabaseClient
+                                .from('scores')
+                                .update({ score: score })
+                                .eq('user_id', currentUser.id)
+                                .eq('song_id', currentSong.id);
+                            
+                            // 更新用户总分
+                            const scoreDiff = score - existingScore.score;
+                            await supabaseClient
+                                .from('users')
+                                .update({ total_score: (currentUser.total_score || 0) + scoreDiff })
+                                .eq('id', currentUser.id);
+                            
+                            // 更新当前用户对象
+                            currentUser.total_score = (currentUser.total_score || 0) + scoreDiff;
+                        }
+                    } else {
+                        // 插入新分数
+                        await supabaseClient
+                            .from('scores')
+                            .insert({
+                                user_id: currentUser.id,
+                                song_id: currentSong.id,
+                                score: score
+                            });
+                        
+                        // 更新用户总分
+                        await supabaseClient
+                            .from('users')
+                            .update({ total_score: (currentUser.total_score || 0) + score })
+                            .eq('id', currentUser.id);
+                        
+                        // 更新当前用户对象
+                        currentUser.total_score = (currentUser.total_score || 0) + score;
+                    }
+                } catch (err) {
+                    console.error('保存分数失败:', err);
+                }
+            }
+            
+            // 立即显示结算界面
+            document.getElementById('finalScoreValue').textContent = score;
+            document.getElementById('finalScore').style.display = 'block';
+            document.getElementById('gameStartBtn').style.display = 'none';
+            document.getElementById('startOverlay').style.display = 'flex';
+            
+            // 清除所有音符
+            document.querySelectorAll('.note').forEach(n => n.remove());
+            
+            // 显示游戏结束提示
+            showGameMessage('游戏结束! 🎉');
+        }
+
+        let noteDuration = 400; // 默认音符长度
+        let isDeleteMode = false; // 删除模式状态
+        let volumeLevel = 0.8; // 默认音量（0-1）
+        let currentOctave = 1; // 默认八度（0=低八度，1=中八度，2=高八度）
+        let backgroundMusic = null; // 背景音乐对象
+        let isBackgroundMusicPlaying = true; // 背景音乐播放状态
+        let backgroundMusicVolume = 0.3; // 背景音乐音量（0-1）
+        
+        function addNote(track, duration = noteDuration) {
+            if (audioContext.state === 'suspended') audioContext.resume();
+            
+            let time = 0;
+            if (editorNotes.length > 0) {
+                const lastNote = editorNotes[editorNotes.length - 1];
+                time = lastNote.time + lastNote.duration;
+            }
+            
+            editorNotes.push({
+                track: track,
+                time: time,
+                duration: duration,
+                octave: currentOctave
+            });
+            
+            // 计算带八度的频率
+            const octaveMultiplier = Math.pow(2, currentOctave - 1);
+            const freq = noteFreqs[track] * octaveMultiplier;
+            playTone(freq, duration / 1000, 0.4);
+            renderEditorNotes();
+        }
+
+        function renderEditorNotes() {
+            document.querySelectorAll('.editor-note').forEach(n => n.remove());
+            
+            const tracks = document.querySelectorAll('.editor-track');
+            
+            // 计算需要的最小高度
+            let maxTime = 0;
+            editorNotes.forEach(note => {
+                const noteEndTime = note.time + (note.duration || 400);
+                if (noteEndTime > maxTime) {
+                    maxTime = noteEndTime;
+                }
+            });
+            
+            // 转换为像素高度，并增加额外缓冲空间
+            const minRequiredHeight = Math.max(400, (maxTime / 10) + 300); // 基础400px + 音符结束位置 + 300px缓冲
+            
+            // 更新每个轨道的高度
+            tracks.forEach(track => {
+                track.style.height = minRequiredHeight + 'px';
+            });
+            
+            // 同时更新editor-tracks容器的高度
+            const editorTracksEl = document.getElementById('editorTracks');
+            if (editorTracksEl) {
+                editorTracksEl.style.minHeight = minRequiredHeight + 'px';
+            }
+            
+            editorNotes.forEach((note, index) => {
+                const noteEl = document.createElement('div');
+                noteEl.className = `editor-note track${note.track}`;
+                noteEl.dataset.index = index;
+                noteEl.style.top = (note.time / 10) + 'px';
+                // 固定方块显示大小，不随长度变化
+                noteEl.style.height = '45px';
+                // 在方块中标明长度和八度
+                const octaveText = note.octave === 0 ? '低' : (note.octave === 1 ? '中' : '高');
+                noteEl.innerHTML = `${noteNames[note.track]}<br><small>${note.duration}ms | ${octaveText}八度</small>`;
+                noteEl.title = `双击删除 | 长度: ${note.duration}ms | 八度: ${octaveText} | 时间: ${note.time}ms`;
+                noteEl.draggable = true;
+                
+                // 双击删除
+                noteEl.addEventListener('dblclick', function(e) {
+                    e.stopPropagation();
+                    editorNotes.splice(index, 1);
+                    renderEditorNotes();
+                    showToast('已删除音符');
+                });
+                
+                // 拖拽功能
+                let isDragging = false;
+                let startY = 0;
+                let startTop = 0;
+                
+                noteEl.addEventListener('mousedown', function(e) {
+                    e.stopPropagation();
+                    
+                    // 如果在删除模式下，直接删除音符
+                    if (isDeleteMode) {
+                        editorNotes.splice(index, 1);
+                        renderEditorNotes();
+                        showToast('已删除音符');
+                        return;
+                    }
+                    
+                    isDragging = true;
+                    startY = e.clientY;
+                    startTop = parseInt(noteEl.style.top) || 0;
+                    noteEl.style.cursor = 'grabbing';
+                    noteEl.style.opacity = '0.8';
+                });
+                
+                // 点击事件（用于触摸设备）
+                noteEl.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    
+                    // 如果在删除模式下，删除音符
+                    if (isDeleteMode) {
+                        editorNotes.splice(index, 1);
+                        renderEditorNotes();
+                        showToast('已删除音符');
+                    }
+                });
+                
+                document.addEventListener('mousemove', function(e) {
+                    if (!isDragging) return;
+                    
+                    const deltaY = e.clientY - startY;
+                    const newTop = Math.max(0, startTop + deltaY);
+                    noteEl.style.top = newTop + 'px';
+                });
+                
+                document.addEventListener('mouseup', function() {
+                    if (!isDragging) return;
+                    
+                    isDragging = false;
+                    noteEl.style.cursor = 'grab';
+                    noteEl.style.opacity = '1';
+                    
+                    // 更新音符时间
+                    const newTop = parseInt(noteEl.style.top) || 0;
+                    const newTime = Math.max(0, Math.round(newTop * 10));
+                    
+                    if (newTime !== note.time) {
+                        note.time = newTime;
+                        editorNotes.sort((a, b) => a.time - b.time);
+                        renderEditorNotes();
+                        showToast(`音符时间已调整为: ${newTime}ms`);
+                    }
+                });
+                
+                // 触摸设备支持
+                noteEl.addEventListener('touchstart', function(e) {
+                    e.stopPropagation();
+                    
+                    // 如果在删除模式下，直接删除音符
+                    if (isDeleteMode) {
+                        editorNotes.splice(index, 1);
+                        renderEditorNotes();
+                        showToast('已删除音符');
+                        return;
+                    }
+                    
+                    isDragging = true;
+                    startY = e.touches[0].clientY;
+                    startTop = parseInt(noteEl.style.top) || 0;
+                    noteEl.style.cursor = 'grabbing';
+                    noteEl.style.opacity = '0.8';
+                }, {passive: false});
+                
+                document.addEventListener('touchmove', function(e) {
+                    if (!isDragging) return;
+                    
+                    const deltaY = e.touches[0].clientY - startY;
+                    const newTop = Math.max(0, startTop + deltaY);
+                    noteEl.style.top = newTop + 'px';
+                }, {passive: false});
+                
+                document.addEventListener('touchend', function() {
+                    if (!isDragging) return;
+                    
+                    isDragging = false;
+                    noteEl.style.cursor = 'grab';
+                    noteEl.style.opacity = '1';
+                    
+                    // 更新音符时间
+                    const newTop = parseInt(noteEl.style.top) || 0;
+                    const newTime = Math.max(0, Math.round(newTop * 10));
+                    
+                    if (newTime !== note.time) {
+                        note.time = newTime;
+                        editorNotes.sort((a, b) => a.time - b.time);
+                        renderEditorNotes();
+                        showToast(`音符时间已调整为: ${newTime}ms`);
+                    }
+                });
+                
+                if (note.track < tracks.length) {
+                    tracks[note.track].appendChild(noteEl);
+                }
+            });
+            
+            document.getElementById('editorTip').style.display = editorNotes.length === 0 ? 'block' : 'none';
+        }
+
+        function playEditorPreview() {
+            if (editorNotes.length === 0) {
+                showToast('请先添加音符');
+                return;
+            }
+            
+            if (audioContext.state === 'suspended') audioContext.resume();
+            
+            const sortedNotes = [...editorNotes].sort((a, b) => a.time - b.time);
+            
+            sortedNotes.forEach(note => {
+                setTimeout(() => {
+                    // 计算带八度的频率
+                    const octaveMultiplier = Math.pow(2, (note.octave || 1) - 1);
+                    const freq = noteFreqs[note.track] * octaveMultiplier;
+                    playTone(freq, note.duration / 1000, 0.4);
+                }, note.time);
+            });
+            
+            showToast('播放预览中...');
+        }
+
+        document.getElementById('startBtn')?.addEventListener('click', function() {
+            startGame();
+            return false;
+        });
+
+        function startGame() {
+            if (audioContext.state === 'suspended') {
+                audioContext.resume().then(() => {
+                    console.log('音频上下文已恢复');
+                    if (isBackgroundMusicPlaying) {
+                        playBackgroundMusic();
+                    }
+                });
+            }
+            
+            if (!supabaseClient) {
+                const initialized = initSupabase();
+                if (!initialized) {
+                    showToast('Supabase初始化失败，请刷新页面重试');
+                }
+            }
+            
+            document.getElementById('splashScreen').style.display = 'none';
+            document.getElementById('authScreen').classList.add('active');
+        }
+
+        // 滑动解锁功能
+        function initSlideUnlock() {
+            const slideUnlock = document.getElementById('slideUnlock');
+            const slideThumb = document.getElementById('slideThumb');
+            const slideText = document.getElementById('slideText');
+            const slideSuccess = document.getElementById('slideSuccess');
+            
+            if (!slideUnlock) return;
+            
+            let isSliding = false;
+            let startX = 0;
+            let currentX = 0;
+            const maxSlide = slideUnlock.offsetWidth - slideThumb.offsetWidth - 6;
+            
+            function handleStart(e) {
+                e.preventDefault();
+                isSliding = true;
+                startX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+                slideThumb.classList.add('pressed');
+                slideText.classList.add('sliding');
+            }
+            
+            function handleMove(e) {
+                if (!isSliding) return;
+                e.preventDefault();
+                
+                const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+                currentX = clientX - startX;
+                
+                if (currentX < 0) currentX = 0;
+                if (currentX > maxSlide) currentX = maxSlide;
+                
+                slideThumb.style.left = (currentX + 3) + 'px';
+            }
+            
+            function handleEnd() {
+                if (!isSliding) return;
+                isSliding = false;
+                slideThumb.classList.remove('pressed');
+                
+                if (currentX >= maxSlide * 0.9) {
+                    slideThumb.style.left = (maxSlide + 3) + 'px';
+                    slideSuccess.classList.add('show');
+                    slideText.classList.remove('sliding');
+                    
+                    setTimeout(() => {
+                        startGame();
+                    }, 300);
+                } else {
+                    slideThumb.style.left = '3px';
+                    slideText.classList.remove('sliding');
+                }
+                
+                currentX = 0;
+            }
+            
+            slideUnlock.addEventListener('mousedown', handleStart);
+            slideUnlock.addEventListener('touchstart', handleStart, { passive: false });
+            
+            document.addEventListener('mousemove', handleMove);
+            document.addEventListener('touchmove', handleMove, { passive: false });
+            
+            document.addEventListener('mouseup', handleEnd);
+            document.addEventListener('touchend', handleEnd);
+        }
+
+        initSlideUnlock();
+
+        // 登录注册切换
+        document.getElementById('authToggleText').addEventListener('click', function() {
+            isAuthModeLogin = !isAuthModeLogin;
+            document.getElementById('authTitle').textContent = isAuthModeLogin ? '登录' : '注册';
+            document.getElementById('authSubmitBtn').textContent = isAuthModeLogin ? '登录' : '注册';
+            document.getElementById('authToggleText').textContent = isAuthModeLogin ? '没有账号？点击注册' : '已有账号？点击登录';
+        });
+
+        // 登录注册提交
+        document.getElementById('authSubmitBtn').addEventListener('click', async function() {
+            const id = document.getElementById('authId').value.trim();
+            const password = document.getElementById('authPassword').value;
+            
+            if (!id || !password) {
+                showToast('请输入ID和密码');
+                return;
+            }
+            
+            try {
+                if (isAuthModeLogin) {
+                    // 登录逻辑
+                    const { data, error } = await supabaseClient
+                        .from('users')
+                        .select('*')
+                        .eq('id', id)
+                        .eq('password', password)
+                        .single();
+                    
+                    if (error || !data) {
+                        showToast('登录失败，ID或密码错误');
+                        return;
+                    }
+                    
+                    currentUser = data;
+                    showToast('登录成功！');
+                    
+                    // 检查是否为管理员
+                    if (data.is_admin) {
+                        document.getElementById('adminBtn').style.display = 'block';
+                    } else {
+                        document.getElementById('adminBtn').style.display = 'none';
+                    }
+                } else {
+                    // 注册逻辑
+                    const { data, error } = await supabaseClient
+                        .from('users')
+                        .select('*')
+                        .eq('id', id)
+                        .single();
+                    
+                    if (data) {
+                        showToast('注册失败，ID已存在');
+                        return;
+                    }
+                    
+                    const { data: newUser, error: createError } = await supabaseClient
+                        .from('users')
+                        .insert({
+                            id: id,
+                            password: password,
+                            total_score: 0
+                        })
+                        .select()
+                        .single();
+                    
+                    if (createError) {
+                        showToast('注册失败：' + createError.message);
+                        return;
+                    }
+                    
+                    currentUser = newUser;
+                    showToast('注册成功！');
+                }
+                
+                // 登录成功后进入游戏
+                document.getElementById('authScreen').classList.remove('active');
+                document.getElementById('gameHeader').style.display = 'flex';
+                document.getElementById('userInfo').textContent = currentUser.id;
+                showScreen('lobby');
+                loadSongs();
+            } catch (err) {
+                showToast('操作失败：' + err.message);
+            }
+        });
+
+        // 排行榜按钮点击
+        document.getElementById('leaderboardBtn').addEventListener('click', function() {
+            if (!currentUser) {
+                showToast('请先登录');
+                return;
+            }
+            showLeaderboard();
+            return false;
+        });
+
+        // 关闭排行榜
+        document.getElementById('leaderboardClose').addEventListener('click', function() {
+            document.getElementById('leaderboardDialog').classList.remove('show');
+            return false;
+        });
+
+        // 音乐按钮点击
+        document.getElementById('musicBtn').addEventListener('click', function() {
+            toggleBackgroundMusic();
+            return false;
+        });
+
+        // 音效按钮点击
+        document.getElementById('sfxBtn').addEventListener('click', function() {
+            soundEffectsEnabled = !soundEffectsEnabled;
+            updateSfxButton();
+            return false;
+        });
+
+        // 审核按钮点击
+        document.getElementById('adminBtn').addEventListener('click', function() {
+            showAdminPanel();
+            return false;
+        });
+
+        // 关闭审核面板
+        document.getElementById('adminClose').addEventListener('click', function() {
+            document.getElementById('adminDialog').classList.remove('show');
+            return false;
+        });
+
+        // 封面音乐按钮点击
+        document.getElementById('splashMusicBtn').addEventListener('click', function() {
+            toggleBackgroundMusic();
+            return false;
+        });
+
+        // 登录页音乐按钮点击
+        document.getElementById('authMusicBtn').addEventListener('click', function() {
+            toggleBackgroundMusic();
+            return false;
+        });
+
+        document.getElementById('createBtn').addEventListener('click', function() {
+            editorNotes = [];
+            document.getElementById('songTitle').value = '';
+            document.getElementById('songSpeed').value = '1.0';
+            renderEditorNotes();
+            showScreen('editor');
+        });
+
+        document.getElementById('backBtn').addEventListener('click', function() {
+            showConfirm('返回将丢失未保存的内容，确定返回?', () => {
+                showScreen('lobby');
+            });
+        });
+
+        document.getElementById('gameBackBtn').addEventListener('click', function() {
+            isPlaying = false;
+            cancelAnimationFrame(animationId);
+            showScreen('lobby');
+        });
+
+        document.getElementById('clearBtn').addEventListener('click', function() {
+            showConfirm('确定清空所有音符?', () => {
+                editorNotes = [];
+                renderEditorNotes();
+                showToast('已清空');
+            });
+        });
+
+        document.getElementById('previewBtn').addEventListener('click', function() {
+            playEditorPreview();
+        });
+
+        document.getElementById('saveBtn').addEventListener('click', async function() {
+            const title = document.getElementById('songTitle').value.trim();
+            const speed = parseFloat(document.getElementById('songSpeed').value) || 1.0;
+            
+            if (!title) {
+                showToast('请输入歌曲名称');
+                return;
+            }
+            
+            if (editorNotes.length === 0) {
+                showToast('请先添加音符');
+                return;
+            }
+            
+            if (!supabaseClient) {
+                showToast('Supabase未初始化，无法保存');
+                return;
+            }
+            
+            showConfirm('确定发布这首歌曲?', async () => {
+                const notesData = editorNotes.map(n => {
+                    // 计算带八度的频率
+                    const octaveMultiplier = Math.pow(2, (n.octave || 1) - 1);
+                    const freq = noteFreqs[n.track] * octaveMultiplier;
+                    return {
+                        track: n.track,
+                        time: n.time,
+                        duration: n.duration || 400,
+                        octave: n.octave || 1,
+                        freq: freq
+                    };
+                });
+                
+                try {
+                    console.log('保存歌曲数据:', {
+                        title: title,
+                        author: currentUser ? currentUser.id : '匿名玩家',
+                        notes: notesData,
+                        speed: speed
+                    });
+                    
+                    const { error } = await supabaseClient.from('songs').insert({
+                        title: title,
+                        author: currentUser ? currentUser.id : '匿名玩家',
+                        notes: notesData,
+                        speed: speed,
+                        play_count: 0,
+                        like_count: 0,
+                        status: 'pending'
+                    });
+                    
+                    if (error) {
+                        console.error('保存歌曲失败:', error);
+                        throw error;
+                    }
+                    
+                    showToast('提交成功，等待审核!');
+                    await loadSongs();
+                    showScreen('lobby');
+                } catch (err) {
+                    console.error('保存失败:', err);
+                    showToast('保存失败: ' + err.message);
+                }
+            });
+        });
+
+        document.getElementById('gameStartBtn').addEventListener('click', function() {
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            score = 0;
+            combo = 0;
+            eliminatedNotes = new Set(); // 重置已消除的音符
+            comboEffectShown = { 20: false, 40: false }; // 重置连击特效标志
+            document.getElementById('score').textContent = 0;
+            document.getElementById('combo').textContent = 0;
+            
+            isPlaying = true;
+            document.getElementById('startOverlay').style.display = 'none';
+            
+            // 尝试锁定为横屏
+            if (screen.orientation && screen.orientation.lock) {
+                screen.orientation.lock('landscape').catch(() => {});
+            }
+            
+            gameStartTime = Date.now();
+            
+            // 清除旧音符
+            document.querySelectorAll('.note').forEach(n => n.remove());
+            
+            // 开始游戏循环
+            updateGameNotes();
+        });
+
+        document.querySelectorAll('.editor-key').forEach(key => {
+            key.addEventListener('click', function(e) {
+                e.preventDefault();
+                const track = parseInt(this.dataset.track);
+                addNote(track);
+                return false;
+            });
+            
+            key.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                const track = parseInt(this.dataset.track);
+                addNote(track);
+                return false;
+            }, {passive: false});
+        });
+
+        document.querySelectorAll('.editor-track').forEach(track => {
+            track.addEventListener('click', function(e) {
+                const trackIndex = parseInt(this.dataset.track);
+                const rect = this.getBoundingClientRect();
+                const clickY = e.clientY - rect.top;
+                
+                // 计算点击位置对应的时间（10px = 100ms）
+                const time = Math.max(0, Math.round(clickY * 10));
+                
+                // 创建新音符
+                const newNote = {
+                    track: trackIndex,
+                    time: time,
+                    duration: noteDuration,
+                    octave: currentOctave
+                };
+                
+                // 添加到数组并按时间排序
+                editorNotes.push(newNote);
+                editorNotes.sort((a, b) => a.time - b.time);
+                
+                // 播放音效并重新渲染
+                if (audioContext.state === 'suspended') audioContext.resume();
+                playTone(noteFreqs[trackIndex], noteDuration / 1000, 0.4);
+                renderEditorNotes();
+                showToast(`已添加音符到时间: ${time}ms`);
+                return false;
+            });
+        });
+
+        // 音节长度控制按钮事件
+        document.querySelectorAll('.duration-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.duration-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                noteDuration = parseInt(this.dataset.duration);
+                showToast(`音符长度已设置为: ${noteDuration}ms`);
+            });
+        });
+
+        // 删除模式按钮事件
+        document.getElementById('deleteBtn').addEventListener('click', function() {
+            isDeleteMode = !isDeleteMode;
+            if (isDeleteMode) {
+                this.classList.add('active');
+                this.style.background = '#e74c3c';
+                this.textContent = '取消删除';
+                showToast('已进入删除模式，点击音符即可删除');
+            } else {
+                this.classList.remove('active');
+                this.style.background = '';
+                this.textContent = '删除模式';
+                showToast('已退出删除模式');
+            }
+        });
+
+        // 自定义长度设置按钮事件
+        document.getElementById('setDurationBtn').addEventListener('click', function() {
+            const customDuration = parseInt(document.getElementById('customDuration').value);
+            if (customDuration && customDuration >= 100 && customDuration <= 5000) {
+                noteDuration = customDuration;
+                document.querySelectorAll('.duration-btn').forEach(btn => btn.classList.remove('active'));
+                showToast(`音符长度已设置为: ${customDuration}ms`);
+            } else {
+                showToast('请输入有效的长度 (100-5000ms)');
+            }
+        });
+
+        // 自定义长度输入框回车事件
+        document.getElementById('customDuration').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('setDurationBtn').click();
+            }
+        });
+
+        // 八度选择事件
+        document.getElementById('octaveSelect').addEventListener('change', function() {
+            currentOctave = parseInt(this.value);
+            const octaveText = currentOctave === 0 ? '低八度' : (currentOctave === 1 ? '中八度' : '高八度');
+            showToast(`已切换到${octaveText}`);
+        });
+
+        // 空格键添加音符支持
+        document.addEventListener('keydown', function(e) {
+            if (currentScreen === 'editor' && e.code === 'Space') {
+                e.preventDefault();
+                // 默认添加到中间轨道（3号轨道）
+                addNote(3);
+            }
+            return false;
+        });
+
+        // 音量控制事件
+        document.getElementById('volumeBtn').addEventListener('click', function(e) {
+            e.stopPropagation();
+            const volumeSlider = document.getElementById('volumeSlider');
+            volumeSlider.classList.toggle('show');
+            return false;
+        });
+        
+        // 音量滑块变化事件
+        document.getElementById('volumeRange').addEventListener('input', function() {
+            const volume = parseInt(this.value);
+            volumeLevel = volume / 100;
+            
+            document.getElementById('volumeLevel').textContent = volume + '%';
+            document.getElementById('volumeLevelDisplay').textContent = volume + '%';
+            return false;
+        });
+        
+        // 点击其他地方关闭音量滑块
+        document.addEventListener('click', function(e) {
+            const volumeControl = document.querySelector('.volume-control');
+            if (!volumeControl.contains(e.target)) {
+                document.getElementById('volumeSlider').classList.remove('show');
+            }
+            return false;
+        });
+
+        document.getElementById('gameHeader').style.display = 'none';
+    </script>
+</body>
+</html>
